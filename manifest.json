@@ -10,8 +10,8 @@
       {
         "matches": ["https://*/*"],
         "js": [
-          "node_modules/xlsx/xlsx.js",
-          "popup.js"
+          "popup.js",
+          "engine.js"
           ]
         }],
     "host_permissions": [

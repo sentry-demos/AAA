@@ -1,5 +1,7 @@
 const api = "https://sentry.io/api/0/organizations/"
 let url;
+const {RULE_ENGINE} = import('./engine.js');
+
 // import { XLSX } from "./node_modules/xlsx/xlsx.js"; 
 // import * as XLSX from './node_modules/xlsx/xlsx.mjs';
 
@@ -139,7 +141,7 @@ class Organization {
 
 class Project {
   constructor(name,id,usesEnvironments,hasMinifiedStackTrace,sdkUpdates,useResolveWorkflow,assignmentPercentage,ownershipRules,usingSessions,
-    usingReleases,usingAttachments,usingProfiling,usingPerformance,alertsSet,metricAlerts,crashFreeAlerts){
+    usingReleases,usingAttachments,usingProfiling,usingPerformance,alertsSet,metricAlerts,crashFreeAlerts,isMobile,linksIssues){
       this._name = name;
       this.id = id;
       this.usesEnvironments = usesEnvironments;
@@ -150,11 +152,15 @@ class Project {
       this.ownershipRules = ownershipRules
       this.usingSessions = usingSessions;
       this.usingReleases = usingReleases;
+      this.usingPerformance = usingPerformance;
       this.usingAttachments = usingAttachments;
       this.usingProfiling = usingProfiling;
       this.alertsSet = alertsSet;
       this.metricAlerts = metricAlerts;
       this.crashFreeAlerts = crashFreeAlerts;
+      this.isMobile = isMobile;
+      this.linksIssues = linksIssues;
+
     }
 
     get projectName(){
@@ -291,7 +297,8 @@ class Project {
 let outputRows = [
   [],['Organization Stats'],[],[
   'Organization Name', 'Using SCIM', 'Using SSO', 'Using Messaging Integration', 'Using SCM Integration', 'Using Issue Tracking Integration',
-  'Projects Created Recently', 'Members Invited Recently', 'Teams have been used recently (Either created or joined)', 'Project Settings edited recently', 'Renewal in next 6 months'
+  'Projects Created Recently', 'Members Invited Recently', 'Teams have been used recently (Either created or joined)', 'Project Settings edited recently', 'Renewal in next 6 months',
+  'Average Error Quota Usage over the past 6 months', 'Average Txn Quota Usage over the past 6 months', 'Average Attachment Quota Usage over the past 6 months'
   ],[],[],[
     'Project Name','Project Id','Project Uses Environments?','Project has minified Stacktraces?', 'Sdk version to upgrade', 'Uses all Error Types', 'Issue Workflow is used? (Issues get Resolved)',
     '% Of issues that are assigned', 'Ownership Rules are set', 'Sessions are being sent?', 'Releases are being created?', 'Attachments are being sent?', 'Profiles are being used?',
@@ -543,19 +550,33 @@ async function checkOrgStats(org){
   let renewalDate = new Date(orgSubscription['renewalDate']).getTime()
   let renewalSoon = ( ( renewalDate - new Date().getTime() ) / (1000*60*60*24) ) < 180 // Check if renewal is within 6 months
 
-  
-  let eventQuotaUsage = 0;
+  outputRows[4][10] = renewalSoon;
+  let errorQuotaUsage = 0;
+  let txnsQuotaUsage = 0;
+  let attachmentQuotaUsage = 0;
   for(var i=0; i < 6; i++) { 
     if (orgHistory[i]){
-      eventQuotaUsage += orgHistory[i]
+      errorQuotaUsage += orgHistory[i]['categories']['errors']['usage'] / orgHistory[i]['categories']['errors']['reserved']
+      txnsQuotaUsage += orgHistory[i]['categories']['transactions']['usage'] / orgHistory[i]['categories']['transactions']['reserved']
+      attachmentQuotaUsage += orgHistory[i]['categories']['attachments']['usage'] / orgHistory[i]['categories']['attachments']['reserved']
     }
   }
 
   if (orgHistory.length<6){
-    eventQuotaUsage = eventQuotaUsage / orgHistory.length;
+    errorQuotaUsage = errorQuotaUsage / orgHistory.length;
+    txnsQuotaUsage = txnsQuotaUsage / orgHistory.length;
+    attachmentQuotaUsage = attachmentQuotaUsage / orgHistory.length;
+
   } else {
-    eventQuotaUsage = eventQuotaUsage / 6;
+    errorQuotaUsage = errorQuotaUsage / 6;
+    txnsQuotaUsage = txnsQuotaUsage / 6;
+    attachmentQuotaUsage = attachmentQuotaUsage / 6;
+
   }
+  outputRows[4][11] = errorQuotaUsage * 100;
+  outputRows[4][12] = txnsQuotaUsage * 100;
+  outputRows[4][13] = attachmentQuotaUsage * 100;
+
 
   orgStats = await fetch(orgStatsApi).then((r)=> r.json()).then((result => {return result}));
   
@@ -626,21 +647,26 @@ async function checkProjectStats(org){
       console.log(dropRateRow)
     }
   }
+  let projectsQueried = [];
   for (let project of mobileProjects ) {
-    let projectApi = `https://sentry.io/api/0/organizations/${org}/projects/?query=${project['project']}`;
-    let apiResult = await fetch(projectApi).then((r)=> r.json()).then((result => {return result}));
-    apiResult = apiResult.filter( function (element) {
-      return element['slug'] == project['project'];
-    })[0]
-    let projectId = apiResult['id'];
-    let singleProjectArray = projectStats.groups.filter( function (element) {
-      return Number(projectId) == Number(element['by']['project'])
-    });
-    if(singleProjectArray.length>0){
-      aggregateProjects[projectId] = aggregateStats(singleProjectArray);
-      aggregateProjects[projectId].push(project['project'])
-      
+    if (!(projectsQueried.includes(project['project']))){
+      projectsQueried.push(project['project']);
+      let projectApi = `https://sentry.io/api/0/organizations/${org}/projects/?query=${project['project']}`;
+      let apiResult = await fetch(projectApi).then((r)=> r.json()).then((result => {return result}));
+      apiResult = apiResult.filter( function (element) {
+        return element['slug'] == project['project'];
+      })[0]
+      let projectId = apiResult['id'];
+      let singleProjectArray = projectStats.groups.filter( function (element) {
+        return Number(projectId) == Number(element['by']['project'])
+      });
+      if(singleProjectArray.length>0){
+        aggregateProjects[projectId] = aggregateStats(singleProjectArray);
+        aggregateProjects[projectId].push(project['project'])
+        
+      }
     }
+
   }
 
   /** replaced projects with mobile projects for now.. weird behaviour where mobile projects are missing from projects api result */
