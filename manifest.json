@@ -6,12 +6,21 @@
     "action": {
       "default_popup": "popup.html"
     },
+    "content_scripts": [
+      {
+        "matches": ["https://*/*"],
+        "js": [
+          "node_modules/xlsx/xlsx.js",
+          "popup.js"
+          ]
+        }],
     "host_permissions": [
-      "https://sentry.io/*"
+      "https://*.sentry.io/*"
     ],
     "permissions": [
       "tabGroups",
       "cookies",
-      "storage"
+      "storage",
+      "tabs"
     ]
   }
