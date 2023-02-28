@@ -1,7 +1,7 @@
 const api = "https://sentry.io/api/0/organizations/"
 let url;
 // import { XLSX } from "./node_modules/xlsx/xlsx.js"; 
-import * as XLSX from './node_modules/xlsx/xlsx.mjs';
+// import * as XLSX from './node_modules/xlsx/xlsx.mjs';
 
 // const XLSX = window.XLSX
 function currentOrg(){
@@ -281,13 +281,20 @@ class Project {
 
 }
 
+//         let projectData = {
+  // 'projectName':projectName,'projectId':projectId,'environments':projEnvironmentCount>1,'hasDesymFiles':hasDesymbolicationFiles,
+  // 'upgradeSdk':sdktoUpgrade,'useAllErrorTypes':iosMechanismsUsed || androidMechanismsUsed,'useResolveWorkflow':useResolveWorkflow,'assignments':assignmentPercentage,'ownershipRules':ownershipRulesSet,
+  // 'sessions':usingSessions,'releases':usingReleases,'attachments':usingAttachments,'profiles':usingProfiling,'performance':usingPerformance,
+  // 'alerts':projectAlerts.length>0,'metricAlerts':metricAlerts.length>0,"Crash Free Alerts":crashFreeAlerts
+// };
+
 let outputRows = [
   [],['Organization Stats'],[],[
   'Organization Name', 'Using SCIM', 'Using SSO', 'Using Messaging Integration', 'Using SCM Integration', 'Using Issue Tracking Integration',
-  'Projects Created Recently', 'Members Invited Recently', 'Teams have been used recently (Either created or joined)', 'Project Settings edited recently'
-  ],[],[],[],[
-    'Project Name','Project Id','Project Uses Environments?','Project has minified Stacktraces?', 'Sdk version to upgrade', 'Issue Workflow is used? (Issues get Resolved)',
-    '% Of issues that are assigned', 'Sessions are being sent?', 'Releases are being created?', 'Attachments are being sent?', 'Profiles are being used?',
+  'Projects Created Recently', 'Members Invited Recently', 'Teams have been used recently (Either created or joined)', 'Project Settings edited recently', 'Renewal in next 6 months'
+  ],[],[],[
+    'Project Name','Project Id','Project Uses Environments?','Project has minified Stacktraces?', 'Sdk version to upgrade', 'Uses all Error Types', 'Issue Workflow is used? (Issues get Resolved)',
+    '% Of issues that are assigned', 'Ownership Rules are set', 'Sessions are being sent?', 'Releases are being created?', 'Attachments are being sent?', 'Profiles are being used?',
     'Performance is used in this project?', 'Project has alerts set up?', 'Project has metric alerts set up?', 'Project has a CFSR Alert?'
   ]
 ]
@@ -324,6 +331,9 @@ async function start(org){
   await checkProjectStats(org);
   await checkMobileUseCase(org);
 
+  dropRateDataRows.forEach( element => {
+    outputRows.push(element)
+  })
   let csvContent = "data:text/csv;charset=utf-8," + outputRows.map(e => e.join(",")).join("\n");
   var encodedUri = encodeURI(csvContent);
   var link = document.createElement("a");
@@ -531,10 +541,24 @@ async function checkOrgStats(org){
   let orgHistory = await fetch(orgSubscriptionHistoryApi).then((r)=>r.json()).then((result=>{return result}));
   
   let renewalDate = new Date(orgSubscription['renewalDate']).getTime()
-  let renewalSoon = ( ( renewalDate - new Date().getTime ) / (1000*60*60*24) ) < 180 // Check if renewal is within 6 months
-  // let eventQuotaUsage = 
-  orgStats = await fetch(orgStatsApi).then((r)=> r.json()).then((result => {return result}));
+  let renewalSoon = ( ( renewalDate - new Date().getTime() ) / (1000*60*60*24) ) < 180 // Check if renewal is within 6 months
 
+  
+  let eventQuotaUsage = 0;
+  for(var i=0; i < 6; i++) { 
+    if (orgHistory[i]){
+      eventQuotaUsage += orgHistory[i]
+    }
+  }
+
+  if (orgHistory.length<6){
+    eventQuotaUsage = eventQuotaUsage / orgHistory.length;
+  } else {
+    eventQuotaUsage = eventQuotaUsage / 6;
+  }
+
+  orgStats = await fetch(orgStatsApi).then((r)=> r.json()).then((result => {return result}));
+  
   orgWideStats = aggregateStats(orgStats);
   let dropRateRow = []
   orgWideStats[0].forEach ( element => {
@@ -554,9 +578,6 @@ async function checkOrgStats(org){
   // var ws = XLSX.utils.aoa_to_sheet(orgStatData);
   // wb.Sheets[`${org} Stats`] = ws;
   outputRows.push([],[])
-  dropRateDataRows.forEach( element => {
-    outputRows.push(element)
-  })
   console.log(outputRows[0])
   console.log(outputRows)
 
