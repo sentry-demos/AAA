@@ -621,19 +621,19 @@ export class SdkIssueExtension {
             
             switch(issueType){
                 case SDK_ISSUE_TYPES["sdk.android.instrumentation.http_errors.none"]:
-                    if (!accountData.PROJECT_API.environments) result = true;
+                    if (!accountData.PROJECT_API.usesAllErrorTypes) result = true;
                     break;
                 case SDK_ISSUE_TYPES["sdk.android.instrumentation.db.none"]:
-                    if (!accountData.PROJECT_API.environments) result = true;
+                    if (!accountData.PROJECT_API.usesAllErrorTypes) result = true;
                     break;
                 case SDK_ISSUE_TYPES["sdk.android.instrumentation.fileio.none"]:
-                    if (!accountData.PROJECT_API.environments) result = true;
+                    if (!accountData.PROJECT_API.usesAllErrorTypes) result = true;
                     break;
                 case SDK_ISSUE_TYPES["sdk.android.instrumentation.fragments.none"]:
-                    if (!accountData.PROJECT_API.environments) result = true;
+                    if (!accountData.PROJECT_API.usesAllErrorTypes) result = true;
                     break;
                 case SDK_ISSUE_TYPES["sdk.android.instrumentation.okhttp.none"]:
-                    if (!accountData.PROJECT_API.environments) result = true;
+                    if (!accountData.PROJECT_API.usesAllErrorTypes) result = true;
                     break;
                 default:
                     throw Error(`SDK_ISSUE_TYPE not found for ${issueType} in ${issueDepsArray}`)
@@ -1038,7 +1038,7 @@ class Organization {
 
 class Project {
   constructor(name,id,usesEnvironments,hasMinifiedStackTrace,sdkUpdates,useResolveWorkflow,assignmentPercentage,ownershipRules,usingSessions,
-    usingReleases,usingAttachments,usingProfiling,usingPerformance,alertsSet,metricAlerts,crashFreeAlerts,isMobile,linksIssues,platforms){
+    usingReleases,usingAttachments,usingProfiling,usingPerformance,alertsSet,metricAlerts,crashFreeAlerts,isMobile,linksIssues,platforms,usesAllErrorTypes){
       this.name = name;
       this.id = id;
       this.usesEnvironments = usesEnvironments;
@@ -1058,6 +1058,7 @@ class Project {
       this.isMobile = isMobile;
       this.linksIssues = linksIssues;
       this.platforms = platforms;
+      this.usesAllErrorTypes = usesAllErrorTypes;
     }
 
     get projectName(){
@@ -1159,6 +1160,13 @@ class Project {
 
     }
 
+    get usesAllErrorTypes(){
+      return this._usesAllErrorTypes;
+    }
+
+    set usesAllErrorTypes(x){
+      return this._usesAllErrorTypes;
+    }
 
     get projectAlerts(){
       return this._alertsSet;
@@ -1317,6 +1325,7 @@ async function start(org){
     projObject.usingPerformance = project['performance'];
     projObject.usingProfiling = project['profiles'];
     projObject.usingReleases = project['releases'];
+    projObject.usesAllErrorTypes = project['useAllErrorTypes'];
     projObject.usingSessions = project['sessions'];
     projObject._platforms = project['Platform'];
     projectsArray.push(projObject);
