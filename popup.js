@@ -444,7 +444,6 @@ async function start(org){
   //  org:{ project [{},{}]
 
   console.log(allProjectAudits)
-  let coveredProjectIds = []
   let projectsArray = []
   allProjectAudits.forEach( project => {
     let projObject = new Project(project['projectName']);
@@ -476,6 +475,7 @@ async function start(org){
         projectsArray.push(projObject);
       }
     
+
 
   })
   orgObject.projects = projectsArray;
@@ -1162,7 +1162,7 @@ async function checkMobileUseCase(org) {
       //     + rows.map(e => e.join(",")).join("\n");
       //   console.log(projectName)
       //   console.log(projectData)
-      // allProjectAudits.push(projectData)
+      allProjectAudits.push(projectData)
       
       // var encodedUri = encodeURI(csvContent);
       // var link = document.createElement("a");
