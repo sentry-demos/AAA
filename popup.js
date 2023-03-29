@@ -141,7 +141,8 @@ class Organization {
 
 class Project {
   constructor(name,id,usesEnvironments,hasMinifiedStackTrace,sdkUpdates,useResolveWorkflow,assignmentPercentage,ownershipRules,usingSessions,
-    usingReleases,usingAttachments,usingProfiling,messagingIntegration,usingPerformance,alertsSet,metricAlerts,crashFreeAlerts,linksIssues,platforms,usesAllErrorTypes,isMobile=false){
+    usingReleases,usingAttachments,usingProfiling,messagingIntegration,usingPerformance,alertsSet,metricAlerts,crashFreeAlerts,linksIssues,platforms,usesAllErrorTypes,isMobile=false,httpIsInstrumented=true,
+    dbIsInstrumented=true,uiIsInstrumented=true){
       this.name = name;
       this.id = id;
       this.usesEnvironments = usesEnvironments;
@@ -163,6 +164,9 @@ class Project {
       this.linksIssues = linksIssues;
       this.platforms = platforms;
       this.usesAllErrorTypes = usesAllErrorTypes;
+      this.httpIsInstrumented = httpIsInstrumented;
+      this.dbIsInstrumented = dbIsInstrumented;
+      this.uiIsInstrumented = uiIsInstrumented;
       // this.isMobile = false;
     }
 
@@ -326,6 +330,35 @@ class Project {
     set projectIsMobile(x){
       this.isMobile = x;
     }
+
+
+    get projectInstrumentedHTTP(){
+      this.httpIsInstrumented;
+    }
+
+    set projectInstrumentedHTTP(x){
+      this.httpIsInstrumented = x;
+    }
+
+    get projectInstrumentedUI(){
+      this.uiIsInstrumented;
+    }
+
+    set projectInstrumentedUI(x){
+      this.uiIsInstrumented = x;
+    }
+
+    get projectInstrumentedDB(){
+      this.dbIsInstrumented;
+    }
+
+    set projectInstrumentedDB(x){
+      this.dbIsInstrumented = x;
+    }
+    //       this.usesAllErrorTypes = usesAllErrorTypes;
+      // this.httpIsInstrumented = httpIsInstrumented;
+      // this.dbIsInstrumented = dbIsInstrumented;
+      // this.uiIsInstrumented = uiIsInstrumented;
 }
 
 //         let projectData = {
@@ -343,7 +376,8 @@ let outputRows = [
   ],[],[],[
     'Project Name','Project Id','Project Uses Environments?','Project has minified Stacktraces?', 'Sdk version to upgrade', 'Uses all Error Types', 'Issue Workflow is used? (Issues get Resolved)',
     '% Of issues that are assigned', 'Ownership Rules are set', 'Sessions are being sent?', 'Releases are being created?', 'Attachments are being sent?', 'Profiles are being used?',
-    'Performance is used in this project?', 'Project has alerts set up?', 'Project has metric alerts set up?', 'Project has a CFSR Alert?','Project Platform','Project has an alert which utilises a messaging integration'
+    'Performance is used in this project?', 'Project has alerts set up?', 'Project has metric alerts set up?', 'Project has a CFSR Alert?','Project Platform','Project has an alert which utilises a messaging integration',
+    'DB Spans Instrumented (perf issues)', 'UI Spans Instrumented', 'HTTP Spans Instrumented'
   ]
 ]
 
@@ -431,10 +465,18 @@ async function start(org){
     projObject.messagingIntegration = project['slackAlert']
     if (project['useAllErrorTypes'] != 'null') {
       projObject.projectIsMobile = true;
-    }
-    if(!projectsArray.includes(projObject)){
-      projectsArray.push(projObject);
-    }
+        projObject.httpIsInstrumented = project['httpSpansInstrumented']
+        projObject.dbIsInstrumented = project['dbSpansInstrumented']
+        projObject.uiIsInstrumented = project['uiSpansInstrumented']
+      }
+      // 'dbSpansInstrumented':dbInstrumented,'uiSpansInstrumented':uiInstrumented,'httpSpansInstrumented':httpInstrumented
+      
+      if(projectsArray.filter( function (element) { return element.name == projObject.name }).length<1){
+        projectsArray.push(projObject);
+      }
+    
+
+
   })
   orgObject.projects = projectsArray;
   console.log(orgObject);
@@ -949,6 +991,7 @@ async function checkMobileUseCase(org) {
     let progress = 0;
     let sdkUpdates = await fetch(`https://sentry.io/api/0/organizations/${org}/sdk-updates/`).then((r)=>{return r.json()})
     let iosMechanisms = await fetch(`https://sentry.io/api/0/organizations/${org}/events-facets/?query=mechanism%3A%5BHTTPClientError%2C%20AppHang%2C%20out_of_memory%5D&statsPeriod=14d`).then((r)=>{return r.json()})
+    var discoverMobileMechanisms = await fetch(`https://${org}.sentry.io/api/0/organizations/${org}/events/?field=project&field=count%28%29&field=avg%28spans.db%29&field=avg%28spans.http%29&field=avg%28spans.ui%29&per_page=50&project=-1&query=sdk.name%3A%5Bsentry.java.android%2C%20sentry.cocoa%5D%20event.type%3Atransaction&sort=-count&statsPeriod=30d`)
     let alertApi = `https://sentry.io/api/0/organizations/${org}/combined-rules/?expand=latestIncident&expand=lastTriggered&sort=incident_status&sort=date_triggered`
     let alerts = await fetch(alertApi).then((r)=> r.json()).then((result => {return result}));
     for ( let project of mobileProjects )  {
@@ -1045,8 +1088,30 @@ async function checkMobileUseCase(org) {
         if (resolvedPercentage > 5 || resolved > 1000) {useResolveWorkflow=true;} // Adding resolved
         let usesAllErrorTypes = false; // Convert this from true/false to displaying which error types exist/don't exist
         let iosMechanismsUsed = iosMechanisms[9]['topValues'].filter(function (element) { return element['name']==projectName}).length > 0
-        let androidMechanisms = await fetch(`https://sentry.io/api/0/organizations/${org}/events/?field=mechanism&field=count%28%29&per_page=50&query=sdk.name%3Asentry.java.android%20%21event.type%3Atransaction%20mechanism%3A%5BSentryOkHttpInterceptor%2CANR%5D&sort=-mechanism&statsPeriod=90d`).then((r)=>{return r.json()})
+        let androidMechanisms = await fetch(`https://sentry.io/api/0/organizations/${org}/events/?field=mechanism&field=count%28%29&per_page=50&query=sdk.name%3Asentry.java.android%20%21event.type%3Atransaction%20mechanism%3A%5BSentryOkHttpInterceptor%2CANR%5D&sort=-mechanism&statsPeriod=30d`).then((r)=>{return r.json()})
         let androidMechanismsUsed = androidMechanisms['data'].length>0;
+        let projectMechanisms = {};
+        let dbInstrumented = true;
+        let uiInstrumented = true;
+        let httpInstrumented = true;
+        console.log(discoverMobileMechanisms);
+        if('data' in discoverMobileMechanisms) {
+          if (discoverMobileMechanisms['data'].length>0){
+            projectMechanisms = discoverMobileMechanisms['data'].filter(function (element) { return element['project'] == projectName})[0] ?? {}
+          }
+          if ('avg(spans.db)' in projectMechanisms) {
+            if (projectMechanisms['avg(spans.db)'] == null) {
+              dbInstrumented = false;
+            }
+            if (projectMechanisms['avg(spans.ui)'] == null && project['sdk.name']=='sentry.java.android') {
+              uiInstrumented = false;
+            }
+            if (projectMechanisms['avg(spans.http)'] == null) {
+              httpInstrumented = false;
+            }
+          }
+        }
+
         let hasDesymbolicationFiles = false;
         let proguardApi = `https://sentry.io/api/0/projects/${org}/${projectName}/files/dsyms/?file_formats=proguard`
         let dsymApi = `https://sentry.io/api/0/projects/${org}/${projectName}/files/dsyms/?file_formats=breakpad&file_formats=macho&file_formats=elf&file_formats=pe&file_formats=pdb&file_formats=sourcebundle&file_formats=wasm&file_formats=bcsymbolmap&file_formats=uuidmap&file_formats=il2cpp&file_formats=portablepdb`
@@ -1078,7 +1143,8 @@ async function checkMobileUseCase(org) {
           'projectName':projectName,'projectId':projectId,'environments':projEnvironmentCount>1,'hasDesymFiles':hasDesymbolicationFiles,
           'upgradeSdk':sdktoUpgrade,'useAllErrorTypes':iosMechanismsUsed || androidMechanismsUsed,'useResolveWorkflow':useResolveWorkflow,'assignments':assignmentPercentage,'ownershipRules':ownershipRulesSet,
           'sessions':usingSessions,'releases':usingReleases,'attachments':usingAttachments,'profiles':usingProfiling,'performance':usingPerformance,
-          'alerts':projectAlerts.length>0,'metricAlerts':metricAlerts.length>0,"Crash Free Alerts":crashFreeAlerts,"Platform":platform,'slackAlert':projAlertsUsingSlack.length>0
+          'alerts':projectAlerts.length>0,'metricAlerts':metricAlerts.length>0,"Crash Free Alerts":crashFreeAlerts,"Platform":platform,'slackAlert':projAlertsUsingSlack.length>0,
+          'dbSpansInstrumented':dbInstrumented,'uiSpansInstrumented':uiInstrumented,'httpSpansInstrumented':httpInstrumented
         };
         
 
