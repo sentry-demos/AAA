@@ -1,8 +1,4 @@
 
-export const EVENT_TYPES = {
-    error:'error',
-    transaction:'transaction'
-}
 
 export const SDK_TYPES = {
     mobile:'mobile',
@@ -13,11 +9,125 @@ export const SDK_TYPES = {
     frontend:'frontend',
     android:'android'
 }
-
-export const USER_TYPES = {
-    'team.size.small':'team.size.small',
-    'team.size.large':'team.size.large',
-}
+export const PLATFORM = {
+    android: "android",
+    apple: "apple",
+    capacitor: "capacitor",
+    clojure: "clojure",
+    cocoa: "apple",
+    "cocoa-objc": "apple",
+    "cocoa-swift": "swift",
+    cordova: "cordova",
+    cpp: "cpp",
+    cryengine: "cryengine",
+    csharp: "csharp",
+    "csharp-aspnetcore": "csharp",
+    dart: "dart",
+    default: "default",
+    dotnet: "dotnet",
+    "dotnet-aspnetcore": "dotnet",
+    "dotnet-aspnet": "dotnet",
+    "dotnet-awslambda": "aws",
+    "dotnet-blazor": "blazor",
+    "dotnet-csharp": "csharp",
+    "dotnet-gcpfunctions": "gcp",
+    "dotnet-maui": "maui",
+    "dotnet-uno": "uno",
+    "dotnet-xamarin": "xamarin",
+    dotnetcore: "dotnetcore",
+    dotnetfx: "dotnetfx",
+    electron: "electron",
+    elixir: "elixir",
+    flutter: "flutter",
+    fsharp: "fsharp",
+    go: "go",
+    godot: "godot",
+    java: "java",
+    "java-appengine": "app-engine",
+    "java-android": "android",
+    "java-log4j": "java",
+    "java-log4j2": "java",
+    "java-logback": "logback",
+    "java-logging": "java",
+    "java-spring": "spring",
+    "java-spring-boot": "springboot",
+    javascript: "javascript",
+    "javascript-angular": "angularjs",
+    "javascript-angularjs": "angularjs",
+    "javascript-backbone": "backbone",
+    "javascript-browser": "javascript",
+    "javascript-capacitor": "capacitor",
+    "javascript-cordova": "cordova",
+    "javascript-electron": "electron",
+    "javascript-ember": "ember",
+    "javascript-gatsby": "gatsby",
+    "javascript-ionic": "ionic",
+    "javascript-nextjs": "nextjs",
+    "javascript-react": "react",
+    "javascript-remix": "remix",
+    "javascript-svelte": "svelte",
+    "javascript-vue": "vue",
+    "javascript-wasm": "wasm",
+    ionic: "ionic",
+    kotlin: "kotlin",
+    "kotlin-android": "android",
+    native: "nativec",
+    "native-qt": "qt",
+    node: "nodejs",
+    "node-awslambda": "aws",
+    "node-azurefunctions": "azure",
+    "node-connect": "nodejs",
+    "node-express": "express",
+    "node-gcpfunctions": "gcp",
+    "node-koa": "koa",
+    perl: "perl",
+    php: "php",
+    "php-laravel": "laravel",
+    "php-monolog": "php",
+    "php-symfony2": "symfony",
+    "php-symfony": "symfony",
+    python: "python",
+    "python-aiohttp": "aiohttp",
+    "python-awslambda": "aws",
+    "python-azurefunctions": "azure",
+    "python-bottle": "bottle",
+    "python-celery": "celery",
+    "python-chalice": "chalice",
+    "python-django": "django",
+    "python-falcon": "falcon",
+    "python-fastapi": "fastapi",
+    "python-flask": "flask",
+    "python-gcpfunctions": "gcp",
+    "python-pylons": "python",
+    "python-pyramid": "pyramid",
+    "python-pythonawslambda": "aws",
+    "python-rq": "redis",
+    "python-sanic": "python",
+    "python-serverless": "serverless",
+    "python-starlette": "starlette",
+    "python-tornado": "tornado",
+    "python-tryton": "tryton",
+    qt: "qt",
+    "react-native": "react",
+    ruby: "ruby",
+    "ruby-rack": "ruby",
+    "ruby-rails": "rails",
+    "ruby-sinatra": "sinatra",
+    rust: "rust",
+    "rust-actix": "actix",
+    scala: "scala",
+    stride3d: "stride3d",
+    swift: "swift",
+    unity: "unity",
+    // This will be deprecated in favor of 'unrealengine'
+    ue4: "unreal",
+    unreal: "unreal",
+    unrealengine: "unreal",
+    visualbasic: "visual-basic",
+    // Don't add new platforms down here!
+    // Please add them where they belong alphabetically
+} 
+  
 
 export const DEPENDENCY_TYPES = {
     
@@ -32,49 +142,4 @@ export const DEPENDENCY_TYPES = {
     project:'project',
     org_issue:'org_issue',
     project_issue:'project_issue'
-}
-export const LEVEL_TYPES = {
-    org:'org',
-    project:'project'
-}
-export const ORG_ISSUE_TYPES = {
-    'ecosystem.vcs.none':'ecosystem.vcs.none', 
-    'ecosystem.sso.none':'ecosystem.sso.none',
-    'ecosystem.alerting.none':'ecosystem.alerting.none'
-}
-export const SDK_ISSUE_TYPES = {
-    'sdk.android.instrumentation.fragments.none':'sdk.android.instrumentation.fragments.none',
-    'sdk.android.instrumentation.http_errors.none':'sdk.android.instrumentation.http_errors.none',
-    'sdk.android.instrumentation.fileio.none':'sdk.android.instrumentation.fileio.none',
-    'sdk.android.instrumentation.db.none':'sdk.android.instrumentation.db.none',
-    'sdk.android.instrumentation.okhttp.none':'sdk.android.instrumentation.okhttp.none'
-}
-
-
-export const ISSUE_TYPES = {
-    'sdk.integrations.none':'sdk.integrations.none',
-    'releases.session_tracking.none':'releases.session_tracking.none',
-    'releases.versioning.none':'releases.versioning.none',
-    'releases.environment.none':'releases.environment.none',
-    'quota.txn.high':'quota.txn.high',
-    'quota.txn.low':'quota.txn.low',
-    'quota.utilization.txn.base':'quota.utilization.txn.base',
-    'quota.dropped.errors.high':'quota.dropped.errors.high',
-    'quota.errors.high':'quota.errors.high',
-    'quota.errors.low':'quota.erros.low',
-    'workflow.assignment.some':'workflow.assignment.some',
-    'workflow.assignment.none':'workflow.assignment.none',
-    'workflow.ownership.some':'workflow.ownership.some',
-    'workflow.ownership.none':'workflow.ownership.none',
-    'dashboards.none':'dashboards.none',
-    'workflow.metric_alerts.none':'workflow.metric_alerts.none',
-    'workflow.issue_alerts.none':'workflow.issue_alerts.none',
-    'ecosystem.vcs.none':'ecosystem.vcs.none',
-    'ecosystem.alerting.none':'ecosystem.alerting.none',
-    'releases.artifacts.sourcemaps.none':'releases.artifacts.sourcemaps.none',
-    'releases.artifacts.proguard.none':'releases.artifacts.proguard.none',
-    'releases.artifacts.dsyms.none':'releases.artifacts.dsyms.none',
-    'sdk.major.update':'sdk.major.update',
-    'release_health.environment.none':'release_health.environment.none'
-    
 }
