@@ -1,558 +1,453 @@
-import { EVENT_TYPES, USER_TYPES, DEPENDENCY_TYPES, SDK_TYPES, ISSUE_TYPES, ORG_ISSUE_TYPES, SDK_ISSUE_TYPES } from './types.js';
-import {RULES} from './rules.js';
-/**
- * Rule engine that processes Account data
- * 
- * What we know today: Rules, Account data
- * - The engine evaluates all rules against account data in the order they are specified.
- * 
- */
+import {
+  DEPENDENCY_TYPES,
+  SDK_TYPES,
+} from "./types.js";
+import { RULES } from "./rules.js";
 
-
-export class Node {
-    
-    static bindExtension(extName,parent,extDirectory){
-        //bind extension based on parent dependency
-        //convenience logic for making rule dependency specification easier. 
+export class RuleDependencyNode {
+  static bindNodeDependencyEvaluator(
+    evaluatorType,
+    nodeParent,
+    evaluatorDirectory
+  ) {
+   
+    if (nodeParent != null) {
+      switch (evaluatorType) {
         
-        
-        if(parent != null){
-            
-            // if(!extDirectory[extName]){
-            //     console.log(`FAILURE: Attempting to bind extension: ${extName}`)
-            // }else{
-            //     console.log(`SUCCESS: Attempting to bind extension: ${extName}`) 
-            // }
-            switch(extName){
-               
-                case DEPENDENCY_TYPES.issue:
-                    if(parent.name === DEPENDENCY_TYPES.org) return extDirectory[DEPENDENCY_TYPES.org_issue];
-                    else if(parent.name === DEPENDENCY_TYPES.project) return extDirectory[DEPENDENCY_TYPES.project_issue];
-                    else if(parent.name === DEPENDENCY_TYPES.sdk) return extDirectory[DEPENDENCY_TYPES.sdk_issue]
-                    break;
-                default:
-                    return extDirectory[extName]
-            }
-            
-        }
+        case DEPENDENCY_TYPES.issue:
+          if (nodeParent.name === DEPENDENCY_TYPES.org)
+            return evaluatorDirectory[DEPENDENCY_TYPES.org_issue];
+          else if (nodeParent.name === DEPENDENCY_TYPES.project)
+            return evaluatorDirectory[DEPENDENCY_TYPES.project_issue];
+          else if (nodeParent.name === DEPENDENCY_TYPES.sdk)
+            return evaluatorDirectory[DEPENDENCY_TYPES.sdk_issue];
+          break;
+        default:
+          return evaluatorDirectory[evaluatorType];
+      }
     }
-    constructor(deps,body,priority,name,parent,extension){
-        this.deps = deps;//deps can be null or children?
-        this.body = body;
-        this.priority = priority;
-        this.name = name;// root or extname
-        this.parent = parent;//can be null
-        this.extension = extension;
-        this.children = [];
-    }
-    ruleType(){
-        //introspect rule type based on deps. Meant for identifying rules by top level dependencies (org vs project).
-        const topLevelDeps = this._peekDeps();
-        if(topLevelDeps.length === 1 && topLevelDeps[0] === DEPENDENCY_TYPES.org){
-            return DEPENDENCY_TYPES.org
-        }
-        return DEPENDENCY_TYPES.project;
-    }
-    _peekDeps(){
-        return Array.isArray(this.deps) ? this.deps : Object.keys(this.deps);
-    }
-    create(extDirectory){
-        //returns reference to self (ROOT node)
-        if(Array.isArray(this.deps)){
-            //terminal leaf
-            return
-        }else{
-            let extensions = Object.keys(this.deps);
-           
-            //take seed, create nodes & bind extensions
-            for (const extName of extensions){
+  }
+  constructor(nodeDetails) {
+    this.deps = nodeDetails.deps || null; 
+    this.body = nodeDetails.body || null;
+    this.priority = nodeDetails.priority || null;
+    this.name = nodeDetails.name || "root"; 
+    this.parent = nodeDetails.parent || null;
+    this.depEvaluator = nodeDetails.depEvaluator;
+    this.children = [];
+  }
+  
+  _peekDeps() {
+    return Array.isArray(this.deps) ? this.deps : Object.keys(this.deps);
+  }
+ 
+  createChildDependencyNode(nodeEvaluatorDirectory) {
 
-                const n = new Node(this.deps[extName],null,null,extName,this,Node.bindExtension(extName,this,extDirectory));
-                this.children.push(n);
-                
-            }
-            for (const node of this.children){
-                node.create(extDirectory);
-            }
-            return this;
+    let currentNode = this;
 
+    if (Array.isArray(currentNode.deps)) {
+      //identifies terminal leaf
+      return;
+    } else {
+      let rawChildDependencyTypes = Object.keys(currentNode.deps);
+
+      for (const childType of rawChildDependencyTypes) {
+        let childNodeDetails = {
+          "deps":currentNode.deps[childType], 
+          "name":childType,
+          "parent":currentNode,
+          "depEvaluator":RuleDependencyNode.bindNodeDependencyEvaluator(
+            childType,
+            currentNode,
+            nodeEvaluatorDirectory
+          )
         }
        
+        const childNode = new RuleDependencyNode(
+         childNodeDetails,nodeEvaluatorDirectory
+        );
+        currentNode.children.push(childNode);
+      }
+      for (let childNode of currentNode.children) {
+        childNode.createChildDependencyNode(nodeEvaluatorDirectory);
+      }
+      return currentNode;
     }
-   
-    evaluate(accountData){
-      
-        /* Each node evaluates itself against an associated extension + account data.
-        
-         Rule object keys are never deleted or added to after creation. Sibling order is deterministic during evaluation.
-        */
+  }
 
-        // console.log(`evaluating ${this.body}`)
-        let resultSelf = this.extension.evaluate(accountData,this.deps,{node:this});
-        if(resultSelf !== true){
-            //exit early before child eval
-             return resultSelf
-        }
-      
-        for (let c of this.children){
-            resultSelf = resultSelf & c.evaluate(accountData);
-           
-            if(!resultSelf) break;//exit early before next sibling eval
-        }
-        return resultSelf;
+  /**
+   * 
+   * @param {accoundData} accountData APIs used to access account data 
+   * @return {Boolean} Boolean
+   */
+  evaluate(accountData) {
+    /* 
+    Each (dependency) node in a (rule) tree delegates its evaluation (true or false) to a bound dependency evaluator. Evaluators determine the outcome of a node using a collection of detectors. Detectors are used by evaluators to ask questions about an account.
+
+    */
+
+    let resultSelf = this.depEvaluator.evaluate(accountData, this.deps, {
+      node: this,
+    });
+    if (resultSelf !== true) {
+      //exit early before child eval
+      return resultSelf;
     }
+
+    for (let c of this.children) {
+        //siblings are evaluated in the order they are authored.
+      resultSelf = resultSelf & c.evaluate(accountData);
+
+      if (!resultSelf) break;
+    }
+    return resultSelf;
+  }
 }
 export class Engine {
-    /**
-     * @param {Object} An Options object with the following properties
-     * @param {array} ruleSet [] Rule 
-     * @param {array} extensions [] Extension
-     * @param {bool} debug Flag for debug output
-     */
+  /**
+   * @param {Object} An Options object with the following properties
+   * @param {array} ruleSet [] Rule
+   * @param {array} evaluatorCollection [] Extension
+   * @param {bool} debug Flag for debug output
+   */
+
+  constructor(engineOptions) {
+    this.evaluatorDirectory = this._createEvaluatorDirectory(engineOptions.evaluatorCollection);
+    this.ruleSet = this._preprocessRules(engineOptions.ruleSet);
+    this.debug = engineOptions.debug;
+    this.outbound = {}
+  }
+
+  _wrapWithEvaluatorInterface(project, org) {
+
+    return { PROJECT_API: this._dataApiErrorWrapper(project), ORG_API: this._dataApiErrorWrapper(org)};
+  }
+
+  _dataApiErrorWrapper(target){
+    const handler = {
+      get(target,prop,receiver){
+        
+        if(target[prop] === undefined){
+
+          //Log error if dataApi undefined for future additions
+          /*
+            Temporary: For now the two cases are sdk platform evaluators and all others. In most, if not all other cases, true is an indication of a positive signal (doesn't have issue).
+          */
+          console.error(`Unable to access property [${prop}] for data API. Check that detector is defined correctly.`)
+          switch(prop){
+            case "getSdks":
+              return () => []
+            case "hasDropped":
+              return () => false
+            case "hasBaseTransactions":
+              return () => false
+            default:
+              return () => true
+          }
+          
+        }
+        else{
+          return Reflect.get(...arguments);
+        }
+      }
+    }
+    return new Proxy(target,handler)
+
+    }
     
-    constructor(engineOptions){
-        this.extensions = this._createExtensionDirectory(engineOptions.extensions);
-        //processing rules dependent on extension processing
-        this.ruleSet = this._preprocessRules(engineOptions.ruleSet);
-        this.debug = engineOptions.debug
-    }
 
-    _bindAPIS(project,org){
-        return {PROJECT_API:project,ORG_API:org};
-    }
-    _createExtensionDirectory(rawExtensions){
-       
-        let dir = {};
-        for (const ext of rawExtensions){
-            dir[ext.dependency] = new ext();
-        }
-        
-        return dir;
-    }
 
-    _preprocessRules(rawRuleSet){
-        
-        //do we need to preprocess for syntax errors or dupes?
-        //TODO:check rules to see if level is specified?
-        let processed = [];
-        for (let rawRule of rawRuleSet){
+  _createEvaluatorDirectory(configuredEvaluators) {
+    let dir = {};
 
-            let root = new Node(rawRule.deps,rawRule.body,rawRule.priority,'root',null,new RootExtension());
-            root.create(this.extensions);
-                processed.push(root);
-
-        }
+    for (const evaluator of configuredEvaluators) {
      
-        
-        
-        return processed
-        
+      dir[evaluator.dependency] = new evaluator();
     }
-   
 
-  
-    process(accountData){
-        /**
-         * @param {Array} projectData An array of Projects
-         * @return {Object} An object {projectId:[Rule, ...]}
-         */
+    return dir;
+  }
+
+  _preprocessRules(rawRuleCollection) {
+    //do we need to preprocess for syntax errors or dupes?
+    
+    let processedRules = [];
+    for (let rawRule of rawRuleCollection) {
       
-        let output = {'org':{}};
-        const projects = accountData.org.projects;
-        const org = accountData.org;
-       
-        function outputHelper(ruleType,aggregator,rule,project){
-            if( ruleType === DEPENDENCY_TYPES.project){
-                
-                if( !aggregator[project.name]) aggregator[project.name] = [];
-                aggregator[project.name].push(rule);
-               
-            }else if(ruleType === DEPENDENCY_TYPES.org){
-                //body will uniquely identify an org level rule. This will dedupe.
-                if(!output.org[rule.body]){
-                    output.org[rule.body] = rule;
-                }
-            }else{
-                throw Error("Rule top level dep type not found.")
-            }
-            
-        }
-
-        for(const r of this.ruleSet){
-              
-            this.debug && console.debug('level:[project]',r.deps);
-            //bind APIS in expected shape for extensions that may need access to both.
-            
-            const ruleType = r.ruleType();
-           
-            for (const p of projects){
-                
-                const result = r.evaluate(this._bindAPIS(p,org));
-
-                if(result){
-                
-                    outputHelper(ruleType,output,{body:r.body,deps:r.deps,priority:r.priority},p);
-
-                } 
-                    
-            }
-            
-        }
-        return output
-    }
-  
-}
-export class OrgExtension {
-    static dependency = DEPENDENCY_TYPES.org;
-    constructor(){
-
-    }
-    evaluate(accountData,depsArray,context={}){
-       
-        return true
-    }
-}
-
-export class SdkPlatformExtension {
-    static dependency = DEPENDENCY_TYPES.sdk_platform;
-    constructor(){
-
+      let nodeArgGroup = {
+        "deps":rawRule.deps,
+        "body":rawRule.body,
+        "priority":rawRule.priority,
+        "name":"root",
+        "depEvaluator":new RootEvaluator()
+      }
+      let ruleTreeRoot = new RuleDependencyNode(nodeArgGroup);
+      ruleTreeRoot.createChildDependencyNode(this.evaluatorDirectory);
+      processedRules.push(ruleTreeRoot);
     }
 
-   evaluate(accountData,ruleDepsArray,context={}){
-       /**
-        * //TODO:port over logic from parent SDK extensino
-        //make sure rules reflect the new hierarchy
-        //Add platform extension to exported extensions
-        //test
-        * @return {boolean} Returns true or false if dependency present
-        */
+    return processedRules;
+  }
+  _applyOutboundFormat(projectApi,matchedRuleNode){
 
-    let result = false; 
-    let expandedSet = new Set();//duplicates, user error?
-
-    let accountSdks = accountData.PROJECT_API.getSdks();
-    function helper(accountSdks,value){
-        return accountSdks.includes(value);
+    return {
+      getProjectName:() => projectApi.name,
+      body:matchedRuleNode.body,
+      deps:matchedRuleNode.deps,
+      priority:matchedRuleNode.priority
     }
-    if(ruleDepsArray.includes(SDK_TYPES.mobile)){
-        
-        SDK_GROUP.mobile.forEach(v => {
-            if(helper(accountSdks,v)) expandedSet.add(v);
-        });
-    }
-    if(ruleDepsArray.includes(SDK_TYPES.backend)){
-       SDK_GROUP.backend.forEach(v => {
-        if(helper(accountSdks,v)) expandedSet.add(v);
-    });
-    }
-   
-    ruleDepsArray.forEach(v => {
-        //thought about sdk.group as a new dependency type to avoid this unnecessary step removing pollution 
-        if (SDK_TYPES.mobile !== v && SDK_TYPES.backend !== v && SDK_TYPES.frontend !== v) expandedSet.add(v);
-        
-    });
 
-    const a = Array.from(expandedSet);
-    if(a.length !== 0 && isSubset(accountSdks,a)){
-        result = true;
+  }
+  _dispatchRuleToOutboundQueue(projectApi,matchedRuleNode){
+    let formattedRule = this._applyOutboundFormat(projectApi,matchedRuleNode);
+    const existingEntry = this.outbound[formattedRule.getProjectName()]
+    if(existingEntry){
+      existingEntry.push(formattedRule)
+    }else{
+      this.outbound[formattedRule.getProjectName()] = [];
+      this.outbound[formattedRule.getProjectName()].push(formattedRule);
     }
-   
-    return result
 
-    
-   }
-}
-//SO we have a project level issue sdk.integrations.none
-/**
- * Where do we evaluate this? 
- */
-export class SdkIssueExtension {
-    static dependency = DEPENDENCY_TYPES.sdk_issue;
-    constructor(){
 
+  }
+  _evaluateRuleAgainstProjects(ruleRootNode,accountData){
+    const projectApis = accountData.org.projects;
+    const orgApi = accountData.org;
+    for (const projectApi of projectApis) {
+      const evalDataProvider = this._wrapWithEvaluatorInterface(projectApi, orgApi);
+      const isMatchforProject = ruleRootNode.evaluate(evalDataProvider);
+      if(isMatchforProject) this._dispatchRuleToOutboundQueue(projectApi,ruleRootNode);
+
+
+  }}
+  generateOutboundForAccount(accountData){
+
+    for (const rootNode of this.ruleSet) {
+      this._evaluateRuleAgainstProjects(rootNode,accountData)
     }
     
-    evaluate(accountData, issueDepsArray, context={}){
-        let result = false;
-        
-        for (let issueType of issueDepsArray){
-           
-            switch(issueType){
-                case SDK_ISSUE_TYPES["sdk.android.instrumentation.http_errors.none"]:
-                    if (!accountData.PROJECT_API.hasAndroidHttp()) result = true;
-                    break;
-                case SDK_ISSUE_TYPES["sdk.android.instrumentation.db.none"]:
-                    if (!accountData.PROJECT_API.hasAndroidDb()) result = true;
-                    break;
-                case SDK_ISSUE_TYPES["sdk.android.instrumentation.fileio.none"]:
-                    if (!accountData.PROJECT_API.hasFileIo()) result = true;
-                    break;
-                case SDK_ISSUE_TYPES["sdk.android.instrumentation.fragments.none"]:
-                    if (!accountData.PROJECT_API.hasFragments()) result = true;
-                    break;
-                case SDK_ISSUE_TYPES["sdk.android.instrumentation.okhttp.none"]:
-                    if (!accountData.PROJECT_API.hasOkhttp()) result = true;
-                    break;
-                default:
-                    throw Error(`SDK_ISSUE_TYPE not found for ${issueType} in ${issueDepsArray}`)
-            }
-           
-        }
-        return result
-       
-    }
+    return this.outbound;
+}}
+
+export class OrgEvaluator {
+  static dependency = DEPENDENCY_TYPES.org;
+  constructor() {}
+  evaluate(accountData, depsArray, context = {}) {
+    return true;
+  }
 }
 
-//Extension
-/**
- * fn evaluate(accountData, ruleDepsArray) bool
- */
-export class OrgIssueExtension {
-    static dependency = DEPENDENCY_TYPES.org_issue; 
-    constructor(){
-       
-    }
-    evaluate(accountData, issueDepsArray,context = {}){
-        /**
-         * @param {Object} accountData An object representing API for org data
-         */
-        //do we assume we have just org rules at this point?
-        let result = false;
+// export class SdkPlatformEvaluator {
+//   static dependency = DEPENDENCY_TYPES.sdk_platform;
+//   constructor() {}
 
-        for (let issueType of issueDepsArray){
-           if(issueType === ORG_ISSUE_TYPES['ecosystem.vcs.none']){
-            if(!accountData.ORG_API.hasIntegrationVCS()) result = true;
-           }
-           else if(issueType === ORG_ISSUE_TYPES["ecosystem.alerting.none"]){
-               if(!accountData.ORG_API.hasIntegrationsAlerting()) result = true;
-           }
-           else if(issueType === ORG_ISSUE_TYPES["ecosystem.sso.none"]){
-               if(!accountData.ORG_API.hasIntegrationsSSO()) result = true;
-           }else {
-               throw Error("Issue type not found for ORG_ISSUE extension")
-           }
-           
-        }
-        return result
-    }
-}
+//   evaluate(accountData, ruleDepsArray, context = {}) {
+//     /**
+//         * //TODO:port over logic from parent SDK extensino
+//         //make sure rules reflect the new hierarchy
+//         //Add platform extension to exported extensions
+//         //test
+//         * @return {boolean} Returns true or false if dependency present
+//         */
 
-export class ProjectExtension {
-    static dependency = DEPENDENCY_TYPES.project;
-    constructor(){
+//     let result = false;
+//     //random change
+//     let expandedSet = new Set(); //duplicates, user error?
 
-    }
-    evaluate(accountData, depsArray, context={}){
-        return true
-    }
-}
+//     let accountSdks = accountData.PROJECT_API.projectPlatforms;
+//     function helper(accountSdks, value) {
+//       return accountSdks.includes(value);
+//     }
+//     if (ruleDepsArray.includes(SDK_TYPES.mobile)) {
+//       SDK_GROUP.mobile.forEach((v) => {
+//         if (helper(accountSdks, v)) expandedSet.add(v);
+//       });
+//     }
+//     if (ruleDepsArray.includes(SDK_TYPES.backend)) {
+//       SDK_GROUP.backend.forEach((v) => {
+//         if (helper(accountSdks, v)) expandedSet.add(v);
+//       });
+//     }
 
-export class RootExtension {
-    static dependency = DEPENDENCY_TYPES.root;
-    evaluate(accountData, depsArray, context={}){
-        return true
-    }
-}
+//     ruleDepsArray.forEach((v) => {
+//       //thought about sdk.group as a new dependency type to avoid this unnecessary step removing pollution
+//       if (
+//         SDK_TYPES.mobile !== v &&
+//         SDK_TYPES.backend !== v &&
+//         SDK_TYPES.frontend !== v
+//       )
+//         expandedSet.add(v);
+//     });
 
-export class ProjectIssueExtension {
-  
-    static dependency = DEPENDENCY_TYPES.project_issue;
+//     const a = Array.from(expandedSet);
+//     if (a.length !== 0 && isSubset(accountSdks, a)) {
+//       result = true;
+//     }
+
+//     return result;
+//   }
+// }
+class BasePlatformEvaluator {
+  static dependency = DEPENDENCY_TYPES.sdk_platform
+  evaluate(accountData, platformDetectors, context = {}) {
+    const doNotFlagAccount = false
+    const flag = true
     
-    constructor(){
-       
-    }
-    
-   
-    evaluate(accountData, depsArray, context={}){
-        /**
-         * @param {Object} accountData An object representing API for project data
-         * @param {Array} depsArray An array of Rule dependencies
-         * @param {Object} context A optional context with metadata from the rule tree
-         * @return {boolean} Returns true or false if dependency present
-         */
+    let platformDetected = platformDetectors
+      .map((d) => d(accountData))
+      .every(Boolean);
 
-    
-        let result = false;
-        
-
-
-        for (let issueType of depsArray){
-            //TODO:look for commonalities to optimize this evaluation in future
-            //if issue type is defined but not present in extension this should throw
-            if (issueType === ISSUE_TYPES["dashboard.none"]){
-
-            }
-            else if (issueType === ISSUE_TYPES["releases.session_tracking.none"]){
-                if(!accountData.PROJECT_API.hasSessions()) result = true; 
-            }
-            else if (issueType === ISSUE_TYPES["releases.versioning.none"]){
-                if(!accountData.PROJECT_API.hasReleases()) result = true; 
-            }
-            else if (issueType === ISSUE_TYPES["releases.artifacts.dsyms.none"]){
-                if(!accountData.PROJECT_API.hasDsyms()) result = true; 
-            }
-            else if (issueType === ISSUE_TYPES["releases.artifacts.proguard.none"]){
-                if(!accountData.PROJECT_API.hasProguard()) result = true; 
-            }
-            else if (issueType === ISSUE_TYPES["release_health.environment.none"]){
-                
-                if(!accountData.PROJECT_API.hasEnv()) result = true;
-            }
-            else if(issueType === ISSUE_TYPES["workflow.ownership.none"]){
-               
-                if (!accountData.PROJECT_API.hasOwnership()) result = true;
-            }
-            else if(issueType === ISSUE_TYPES["workflow.metric_alerts.none"]){
-               
-                if (!accountData.PROJECT_API.hasMetricAlert()) result = true;
-            }
-            else if(issueType === ISSUE_TYPES["workflow.issue_alerts.none"]){
-               
-                if (!accountData.PROJECT_API.hasIssueAlert()) result = true;
-            }
-            else if(issueType === ISSUE_TYPES["ecosystem.vcs.none"]){
-               
-                if (!accountData.PROJECT_API.hasIntegrationVCS()) result = true;
-            }
-            else if(issueType === ISSUE_TYPES["releases.artifacts.sourcemaps.none"]){
-               
-                if (!accountData.PROJECT_API.hasSourcemaps()) result = true;
-            }
-            else if(issueType === ISSUE_TYPES["quota.utilization.txn.base"]){
-               
-                if (accountData.PROJECT_API.hasBaseTransactions()) result = true;
-            }
-            else if(issueType === ISSUE_TYPES["dashboards.none"]){
-               
-                if (!accountData.PROJECT_API.hasDashboards()) result = true;
-            }
-            else if(issueType === ISSUE_TYPES["workflow.assignment.none"]){
-               
-                if (!accountData.PROJECT_API.hasAssignment()) result = true;
-            }
-            else if(issueType === ISSUE_TYPES["quota.dropped.errors.high"]){
-               
-                if (accountData.PROJECT_API.hasDropped()) result = true;
-            }
-            else if(issueType === ISSUE_TYPES["ecosystem.alerting.none"]){
-               
-                if (accountData.PROJECT_API.hasIntegrationsAlerting()) result = true;
-            }
-            else throw new Error(`Issue Extension did not find matching issue_type: ${issueType}`);
-        }
-        return result
-    }
+    return platformDetected ? flag : doNotFlagAccount;
+  }  
 }
+class BaseIssueEvaluator{
+  evaluate(accountData, issueDetectors, context = {}) {
+    const doNotFlagAccount = false
+    const flag = true
+    
+    let noIssuesDetected = issueDetectors
+      .map((d) => d(accountData))
+      .every(Boolean);
+
+    return noIssuesDetected ? doNotFlagAccount : flag;
+  } 
+}
+export class ProjectIssueEvaluator extends BaseIssueEvaluator {
+  static dependency = DEPENDENCY_TYPES.project_issue;
+
+}
+
+export class SdkIssueEvaluator extends BaseIssueEvaluator {
+  static dependency = DEPENDENCY_TYPES.sdk_issue;
+ 
+}
+
+export class OrgIssueEvaluator extends BaseIssueEvaluator {
+  static dependency = DEPENDENCY_TYPES.org_issue;
+}
+
+export class ProjectEvaluator {
+  static dependency = DEPENDENCY_TYPES.project;
+  constructor() {}
+  evaluate(accountData, depsArray, context = {}) {
+    return true;
+  }
+}
+
+export class RootEvaluator {
+  static dependency = DEPENDENCY_TYPES.root;
+  evaluate(accountData, depsArray, context = {}) {
+    return true;
+  }
+}
+
 
 
 const SDK_GROUP = {
-    mobile:['android','ios','react-native'],
-    backend:['python','java','golang','.NET'],
-    frontend:['javascript','javascript.react','javascript.vue']
-}
+  mobile: ["android", "ios", "react-native"],
+  backend: ["python", "java", "golang", ".NET"],
+  frontend: ["javascript", "javascript.react", "javascript.vue"],
+};
 
+export class SdkEvaluator {
+  /**
+   * @return {boolean} Returns true or false if dependency present
+   */
+  static dependency = DEPENDENCY_TYPES.sdk;
+  constructor() {}
 
-export class SdkExtension {
+  evaluate(accountData, ruleDepsArray, context) {
     /**
+     *
      * @return {boolean} Returns true or false if dependency present
      */
-    static dependency = DEPENDENCY_TYPES.sdk;
-    constructor(){
-       
-    }
 
-
-   evaluate(accountData,ruleDepsArray,context){
-       /**
-        * 
-        * @return {boolean} Returns true or false if dependency present
-        */
-   
-        return true
-   }
-
-
+    return true;
+  }
 }
 
-function isSubset(dep1,dep2){
-    //checks if dep2 is a subset of dep1
-    return dep2.every(value => dep1.includes(value));
+function isSubset(dep1, dep2) {
+  //checks if dep2 is a subset of dep1
+  return dep2.every((value) => dep1.includes(value));
 }
 
 export const mockAccount = {
-    org:{
-        hasIntegrationVCS:() => false,
-        hasIntegrationsSSO:() => false,
-        hasIntegrationsAlerting:() => false,
-        projects:[
-            {   
-                name:"test_name_A",
-                hasOkhttp:() => false,
-                hasReleases: () => true,
-                hasAndroidDb:() => false,
-                hasFileIo:() => false,
-                hasAndroidHttp: () => false,
-                hasFragments:() => false,
-                getSdks:() => ['android','javascript','java'],
-                hasOwnership:() => false,
-                hasEnv:() => false,
-                hasMetricAlert:() => false,
-                hasIssueAlert:() => false,
-                hasIntegrationVCS:() => false,
-                hasIntegrationsAlerting:() => false,
-                hasSourcemaps:() => false,
-                hasDsyms:()=> false,
-                hasProguard:() => false,
-                hasVersioning:()=> false,
-                hasSessions:() => false,
-                hasBaseTransactions:() => true,
-                hasDashboards:() => false,
-                hasAssignment:() => false,
-                hasDropped:() => true,
-                hasIntegrationVCS:() => true,
-            },
-            {  
-                 
-                name:"test_name_B",
-                hasReleases: () => true,
-                hasOkhttp:() => true,
-                hasAndroidDb:() => true,
-                hasFileIo:() => true,
-                hasAndroidHttp: () => true,
-                hasFragments:() => true,
-                getSdks:() => ['android','javascript','java'],
-                hasOwnership:() => false,
-                hasEnv:() => false,
-                hasMetricAlert:() => false,
-                hasIssueAlert:() => false,
-                hasIntegrationVCS:() => false,
-                hasIntegrationsAlerting:() => false,
-                hasSourcemaps:() => false,
-                hasDsyms:()=> false,
-                hasProguard:() => false,
-                hasVersioning:()=> false,
-                hasSessions:() => false,
-                hasBaseTransactions:() => true,
-                hasDashboards:() => false,
-                hasAssignment:() => false,
-                hasDropped:() => true,
-               
-            }
+  org: {
+    hasIntegrationVCS: () => false,
+    hasIntegrationsSSO: () => false,
+    hasIntegrationsAlerting: () => false,
+    projects: [
+      {
+        name: "test_name_A",
+        usesAllErrorTypes: () => false,
+        hasReleases: () => true,
+        usesAllErrorTypes: () => false,
+        hasFileIo: () => false,
+        usesAllErrorTypes: () => false,
+        usesAllErrorTypes: () => false,
+        getSdks: () => "android",
+        isMobile: () => true,
+        hasOwnership: () => false,
+        hasEnv: () => false,
+        projectMetricAlerts: () => false,
+        projectAlerts: () => false,
+        hasIntegrationVCS: () => false,
+        hasIntegrationsAlerting: () => false,
+        hasSourcemaps: () => false,
+        hasDsyms: () => false,
+        hasProguard: () => false,
+        hasVersioning: () => false,
+        hasSessions: () => false,
+        hasBaseTransactions: () => true,
+        hasDashboards: () => false,
+        hasAssignment: () => false,
+        hasDropped: () => true,
+        hasIntegrationVCS: () => true,
+      },
+      {
+        name: "test_name_B",
+        hasReleases: () => true,
+        isMobile: () => true,
+        usesAllErrorTypes: () => true,
+        usesAllErrorTypes: () => true,
+        hasFileIo: () => true,
+        usesAllErrorTypes: () => true,
+        usesAllErrorTypes: () => true,
+        getSdks: () => "javascript",
+        hasOwnership: () => false,
+        hasEnv: () => false,
+        projectMetricAlerts: () => false,
+        projectAlerts: () => false,
+        hasIntegrationVCS: () => false,
+        hasIntegrationsAlerting: () => false,
+        hasSourcemaps: () => false,
+        hasDsyms: () => false,
+        hasProguard: () => false,
+        hasVersioning: () => false,
+        hasSessions: () => false,
+        hasBaseTransactions: () => true,
+        hasDashboards: () => false,
+        hasAssignment: () => false,
+        hasDropped: () => true,
+      },
+    ],
+  },
+};
 
-        ]
-    }
-    
-}
-
-
-export const extensions = [RootExtension, SdkExtension,SdkPlatformExtension,SdkIssueExtension, OrgExtension, ProjectExtension, OrgIssueExtension, ProjectIssueExtension];
+export const evaluatorCollection = [
+  RootEvaluator,
+  SdkEvaluator,
+  BasePlatformEvaluator,
+  SdkIssueEvaluator,
+  OrgEvaluator,
+  ProjectEvaluator,
+  OrgIssueEvaluator,
+  ProjectIssueEvaluator,
+];
 export const EngineOptions = {
-    debug:false,
-    ruleSet:RULES,
-    extensions:extensions
-} 
+  debug: false,
+  ruleSet: RULES,
+  evaluatorCollection,
+};
 
 export const RULE_ENGINE = new Engine(EngineOptions);
-
-
