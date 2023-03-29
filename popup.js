@@ -410,41 +410,32 @@ async function start(org){
   //  org:{ project [{},{}]
 
   console.log(allProjectAudits)
-  let coveredProjectIds = []
   let projectsArray = []
-  for( let project in allProjectAudits) {
-    console.log(project)
-    console.log(coveredProjectIds)
-    console.log(coveredProjectIds.includes(project['projectId']))
-    if(!coveredProjectIds.includes(project['projectId'])){
-      let projObject = new Project(project['projectName']);
-      projObject.alertsSet = project['alerts'];
-      projObject.assignmentPercentage = project['assignments'];
-      projObject.crashFreeAlerts = project['Crash Free Alerts'];
-      projObject.hasMinifiedStackTrace = project['hasDesymFiles'];
-      projObject.metricAlerts = project['metricAlerts'];
-      projObject.ownershipRules = project['ownershipRules'];
-      projObject.sdkUpdates = project['upgradeSdk'];
-      projObject.useResolveWorkflow = project['useResolveWorkflow'];
-      projObject.usesEnvironments = project['environments'];
-      projObject.usingPerformance = project['performance'];
-      projObject.usingProfiling = project['profiles'];
-      projObject.usingReleases = project['releases'];
-      projObject.usesAllErrorTypes = project['useAllErrorTypes'];
-      projObject.usingSessions = project['sessions'];
-      projObject.platforms = project['Platform'];
-      projObject.messagingIntegration = project['slackAlert']
-      if (project['useAllErrorTypes'] != 'null') {
-        projObject.projectIsMobile = true;
-      }
-      if(projectsArray.filter( function (element) { return element.name == projObject.name }).length<1){
-        projectsArray.push(projObject);
-      }
-      coveredProjectIds.push(project['projectId'])
+  allProjectAudits.forEach( project => {
+    let projObject = new Project(project['projectName']);
+    projObject.alertsSet = project['alerts'];
+    projObject.assignmentPercentage = project['assignments'];
+    projObject.crashFreeAlerts = project['Crash Free Alerts'];
+    projObject.hasMinifiedStackTrace = project['hasDesymFiles'];
+    projObject.metricAlerts = project['metricAlerts'];
+    projObject.ownershipRules = project['ownershipRules'];
+    projObject.sdkUpdates = project['upgradeSdk'];
+    projObject.useResolveWorkflow = project['useResolveWorkflow'];
+    projObject.usesEnvironments = project['environments'];
+    projObject.usingPerformance = project['performance'];
+    projObject.usingProfiling = project['profiles'];
+    projObject.usingReleases = project['releases'];
+    projObject.usesAllErrorTypes = project['useAllErrorTypes'];
+    projObject.usingSessions = project['sessions'];
+    projObject.platforms = project['Platform'];
+    projObject.messagingIntegration = project['slackAlert']
+    if (project['useAllErrorTypes'] != 'null') {
+      projObject.projectIsMobile = true;
     }
-    
-
-  }
+    if(!projectsArray.includes(projObject)){
+      projectsArray.push(projObject);
+    }
+  })
   orgObject.projects = projectsArray;
   console.log(orgObject);
   let objForEval = {org: orgObject}
@@ -453,20 +444,13 @@ async function start(org){
   console.log(o)
   outputRows.push([])
   outputRows.push(['Project Name','Outbound Message','Priority'])
-  let coveredMobileOutbound = [];
   var outboundArray = Object.keys(o).map(
     (key) => { return [key, o[key]] });
   outboundArray.forEach( (project) => {
     project[1].sort((first, second) => { return first['priority'] - second['priority'] });
-    var x = project[1].filter(( t={}, a=> !(t[a]=a in t) ));
-    x.forEach( (outbound) => {
-      if ( !(coveredMobileOutbound.includes(String([project[0],'"'+outbound['body']+'"',outbound['priority']*1])))) 
-      {
-        outputRows.push([project[0],'"'+outbound['body']+'"',outbound['priority']*1])
-        // console.log(coveredMobileOutbound)
-        // console.log(project[1])
-        coveredMobileOutbound.push(String([project[0],'"'+outbound['body']+'"',outbound['priority']*1]))
-      }
+    project[1] = Array.from(new Set(project[1]))
+    project[1].forEach( (outbound) => {
+      outputRows.push([project[0],'"'+outbound['body']+'"',outbound['priority']*1])
     })
   })
   console.log(outputRows)
@@ -1112,7 +1096,7 @@ async function checkMobileUseCase(org) {
       //     + rows.map(e => e.join(",")).join("\n");
       //   console.log(projectName)
       //   console.log(projectData)
-      // allProjectAudits.push(projectData)
+      allProjectAudits.push(projectData)
       
       // var encodedUri = encodeURI(csvContent);
       // var link = document.createElement("a");
