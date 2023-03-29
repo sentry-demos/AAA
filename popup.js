@@ -695,8 +695,7 @@ async function checkOrgStats(org){
   orgWideStats[0].forEach ( element => {
 
     dropRateRow.push(
-      ['Org wide', element, ((((orgWideStats[2][element]*100)/(orgWideStats[2][element]+orgWideStats[1][element])) + 
-      ((orgWideStats[3][element]*100)/(orgWideStats[3][element]+orgWideStats[1][element]))) || '100'), orgWideStats[2][element],
+      ['Org wide', element, ((((orgWideStats[2][element]*100)/(orgWideStats[2][element]+orgWideStats[1][element])) )), orgWideStats[2][element],
       (((orgWideStats[3][element]*100)/(orgWideStats[3][element]+orgWideStats[1][element])) || '100'),(orgWideStats[1][element] || 'none')]
      )
      console.log(dropRateRow)
