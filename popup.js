@@ -446,30 +446,26 @@ async function start(org){
   console.log(allProjectAudits)
   let coveredProjectIds = []
   let projectsArray = []
-  for( let project in allProjectAudits) {
-    console.log(project)
-    console.log(coveredProjectIds)
-    console.log(coveredProjectIds.includes(project['projectId']))
-    if(!coveredProjectIds.includes(project['projectId'])){
-      let projObject = new Project(project['projectName']);
-      projObject.alertsSet = project['alerts'];
-      projObject.assignmentPercentage = project['assignments'];
-      projObject.crashFreeAlerts = project['Crash Free Alerts'];
-      projObject.hasMinifiedStackTrace = project['hasDesymFiles'];
-      projObject.metricAlerts = project['metricAlerts'];
-      projObject.ownershipRules = project['ownershipRules'];
-      projObject.sdkUpdates = project['upgradeSdk'];
-      projObject.useResolveWorkflow = project['useResolveWorkflow'];
-      projObject.usesEnvironments = project['environments'];
-      projObject.usingPerformance = project['performance'];
-      projObject.usingProfiling = project['profiles'];
-      projObject.usingReleases = project['releases'];
-      projObject.usesAllErrorTypes = project['useAllErrorTypes'];
-      projObject.usingSessions = project['sessions'];
-      projObject.platforms = project['Platform'];
-      projObject.messagingIntegration = project['slackAlert']
-      if (project['useAllErrorTypes'] != 'null') {
-        projObject.projectIsMobile = true;
+  allProjectAudits.forEach( project => {
+    let projObject = new Project(project['projectName']);
+    projObject.alertsSet = project['alerts'];
+    projObject.assignmentPercentage = project['assignments'];
+    projObject.crashFreeAlerts = project['Crash Free Alerts'];
+    projObject.hasMinifiedStackTrace = project['hasDesymFiles'];
+    projObject.metricAlerts = project['metricAlerts'];
+    projObject.ownershipRules = project['ownershipRules'];
+    projObject.sdkUpdates = project['upgradeSdk'];
+    projObject.useResolveWorkflow = project['useResolveWorkflow'];
+    projObject.usesEnvironments = project['environments'];
+    projObject.usingPerformance = project['performance'];
+    projObject.usingProfiling = project['profiles'];
+    projObject.usingReleases = project['releases'];
+    projObject.usesAllErrorTypes = project['useAllErrorTypes'];
+    projObject.usingSessions = project['sessions'];
+    projObject.platforms = project['Platform'];
+    projObject.messagingIntegration = project['slackAlert']
+    if (project['useAllErrorTypes'] != 'null') {
+      projObject.projectIsMobile = true;
         projObject.httpIsInstrumented = project['httpSpansInstrumented']
         projObject.dbIsInstrumented = project['dbSpansInstrumented']
         projObject.uiIsInstrumented = project['uiSpansInstrumented']
@@ -479,11 +475,9 @@ async function start(org){
       if(projectsArray.filter( function (element) { return element.name == projObject.name }).length<1){
         projectsArray.push(projObject);
       }
-      coveredProjectIds.push(project['projectId'])
-    }
     
 
-  }
+  })
   orgObject.projects = projectsArray;
   console.log(orgObject);
   let objForEval = {org: orgObject}
@@ -492,20 +486,13 @@ async function start(org){
   console.log(o)
   outputRows.push([])
   outputRows.push(['Project Name','Outbound Message','Priority'])
-  let coveredMobileOutbound = [];
   var outboundArray = Object.keys(o).map(
     (key) => { return [key, o[key]] });
   outboundArray.forEach( (project) => {
     project[1].sort((first, second) => { return first['priority'] - second['priority'] });
-    var x = project[1].filter(( t={}, a=> !(t[a]=a in t) ));
-    x.forEach( (outbound) => {
-      if ( !(coveredMobileOutbound.includes(String([project[0],'"'+outbound['body']+'"',outbound['priority']*1])))) 
-      {
-        outputRows.push([project[0],'"'+outbound['body']+'"',outbound['priority']*1])
-        // console.log(coveredMobileOutbound)
-        // console.log(project[1])
-        coveredMobileOutbound.push(String([project[0],'"'+outbound['body']+'"',outbound['priority']*1]))
-      }
+    project[1] = Array.from(new Set(project[1]))
+    project[1].forEach( (outbound) => {
+      outputRows.push([project[0],'"'+outbound['body']+'"',outbound['priority']*1])
     })
   })
   console.log(outputRows)
@@ -1004,7 +991,7 @@ async function checkMobileUseCase(org) {
     let progress = 0;
     let sdkUpdates = await fetch(`https://sentry.io/api/0/organizations/${org}/sdk-updates/`).then((r)=>{return r.json()})
     let iosMechanisms = await fetch(`https://sentry.io/api/0/organizations/${org}/events-facets/?query=mechanism%3A%5BHTTPClientError%2C%20AppHang%2C%20out_of_memory%5D&statsPeriod=14d`).then((r)=>{return r.json()})
-    var discoverMobileMechanisms = await fetch(`https://doordash.sentry.io/api/0/organizations/${org}/events/?field=project&field=count%28%29&field=avg%28spans.db%29&field=avg%28spans.http%29&field=avg%28spans.ui%29&per_page=50&project=-1&query=sdk.name%3A%5Bsentry.java.android%2C%20sentry.cocoa%5D%20event.type%3Atransaction&sort=-count&statsPeriod=30d`)
+    var discoverMobileMechanisms = await fetch(`https://${org}.sentry.io/api/0/organizations/${org}/events/?field=project&field=count%28%29&field=avg%28spans.db%29&field=avg%28spans.http%29&field=avg%28spans.ui%29&per_page=50&project=-1&query=sdk.name%3A%5Bsentry.java.android%2C%20sentry.cocoa%5D%20event.type%3Atransaction&sort=-count&statsPeriod=30d`)
     let alertApi = `https://sentry.io/api/0/organizations/${org}/combined-rules/?expand=latestIncident&expand=lastTriggered&sort=incident_status&sort=date_triggered`
     let alerts = await fetch(alertApi).then((r)=> r.json()).then((result => {return result}));
     for ( let project of mobileProjects )  {
