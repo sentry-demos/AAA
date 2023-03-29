@@ -814,7 +814,7 @@ async function checkGenericProject(org,project){
   projAlertsUsingSlack = projAlertsUsingSlack.filter( function (element) { return (element['triggers'].length>0)  })
   projAlertsUsingSlack = projAlertsUsingSlack.filter( function (element) { return (element['triggers'][0]['actions'].length>0)  })
   projAlertsUsingSlack = projAlertsUsingSlack.filter( function (element) { return (messagingDict.includes(element['triggers'][0]['actions'][0]))  })
-  let metricAlerts = projectAlerts.filter( function(element) { return element['dataset'] == 'metrics'})
+  let metricAlerts = projectAlerts.filter( function(element) { return (element['dataset'] == 'metrics' || element['dataset'] == 'events')})
   let crashFreeAlerts = metricAlerts.filter( function(element) { return element['aggregate'].includes('percentage(sessions_crashed, sessions)')}).length>0
   let assignmentApi = `https://sentry.io/api/0/organizations/${org}/issues/?collapse=stats&expand=owners&expand=inbox&limit=25&project=${projectId}&query=is%3Aunresolved%20is%3Aassigned&shortIdLookup=1&statsPeriod=14d`
   let assigned = await fetch(assignmentApi).then((r)=> {return r.headers.get('x-hits')})
@@ -879,8 +879,7 @@ async function checkGenericProject(org,project){
   aggregateProjects[projectId][0].forEach( element => {
 
     dropRateRow.push([
-      projectName, element, (((aggregateProjects[projectId][2][element]*100)/(aggregateProjects[projectId][2][element]+aggregateProjects[projectId][1][element])) + 
-      ((aggregateProjects[projectId][3][element]*100)/(aggregateProjects[projectId][3][element]+aggregateProjects[projectId][1][element]))|| '100'),
+      projectName, element, ((aggregateProjects[projectId][2][element]*100)/(aggregateProjects[projectId][2][element]+aggregateProjects[projectId][1][element])),
       aggregateProjects[projectId][2][element],((aggregateProjects[projectId][3][element]*100)/(aggregateProjects[projectId][3][element]+aggregateProjects[projectId][1][element])),
       (aggregateProjects[projectId][1][element] || 'none')
     ])
@@ -1111,8 +1110,7 @@ async function checkMobileUseCase(org) {
           // console.log(element + " is dropping at alarming rate - " +(((aggregateProjects[projectId][2][element]*100)/(aggregateProjects[projectId][2][element]+aggregateProjects[projectId][1][element])) || '100') + "%")
           // console.log(aggregateProjects[projectId][2][element] + " dropped vs. " + (aggregateProjects[projectId][1][element] || 'none') + ' accepted.')
           dropRateRow.push([
-            projectName, element, (((aggregateProjects[projectId][2][element]*100)/(aggregateProjects[projectId][2][element]+aggregateProjects[projectId][1][element])) + 
-            ((aggregateProjects[projectId][3][element]*100)/(aggregateProjects[projectId][3][element]+aggregateProjects[projectId][1][element]))|| '100'),
+            projectName, element, ((aggregateProjects[projectId][2][element]*100)/(aggregateProjects[projectId][2][element]+aggregateProjects[projectId][1][element])),
             aggregateProjects[projectId][2][element],((aggregateProjects[projectId][3][element]*100)/(aggregateProjects[projectId][3][element]+aggregateProjects[projectId][1][element])),
             (aggregateProjects[projectId][1][element] || 'none')
           ])
