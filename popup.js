@@ -878,11 +878,13 @@ async function checkGenericProject(org,project){
   console.log(aggregateProjects)
   aggregateProjects[projectId][0].forEach( element => {
 
-    dropRateRow.push([
-      projectName, element, ((aggregateProjects[projectId][2][element]*100)/(aggregateProjects[projectId][2][element]+aggregateProjects[projectId][1][element])),
-      aggregateProjects[projectId][2][element],((aggregateProjects[projectId][3][element]*100)/(aggregateProjects[projectId][3][element]+aggregateProjects[projectId][1][element])),
-      (aggregateProjects[projectId][1][element] || 'none')
-    ])
+    if(element != 'transaction_indexed'){
+      dropRateRow.push([
+        projectName, element, ((aggregateProjects[projectId][2][element]*100)/(aggregateProjects[projectId][2][element]+aggregateProjects[projectId][1][element])),
+        aggregateProjects[projectId][2][element],((aggregateProjects[projectId][3][element]*100)/(aggregateProjects[projectId][3][element]+aggregateProjects[projectId][1][element])),
+        (aggregateProjects[projectId][1][element] || 'none')
+      ])
+    }
   })
   console.log(dropRateRow)
   dropRateDataRows.push(dropRateRow)
@@ -1109,11 +1111,14 @@ async function checkMobileUseCase(org) {
         aggregateProjects[projectId][0].forEach( element => {
           // console.log(element + " is dropping at alarming rate - " +(((aggregateProjects[projectId][2][element]*100)/(aggregateProjects[projectId][2][element]+aggregateProjects[projectId][1][element])) || '100') + "%")
           // console.log(aggregateProjects[projectId][2][element] + " dropped vs. " + (aggregateProjects[projectId][1][element] || 'none') + ' accepted.')
-          dropRateRow.push([
-            projectName, element, ((aggregateProjects[projectId][2][element]*100)/(aggregateProjects[projectId][2][element]+aggregateProjects[projectId][1][element])),
-            aggregateProjects[projectId][2][element],((aggregateProjects[projectId][3][element]*100)/(aggregateProjects[projectId][3][element]+aggregateProjects[projectId][1][element])),
-            (aggregateProjects[projectId][1][element] || 'none')
-          ])
+          if(element != 'transaction_indexed'){
+            dropRateRow.push([
+              projectName, element, ((aggregateProjects[projectId][2][element]*100)/(aggregateProjects[projectId][2][element]+aggregateProjects[projectId][1][element])),
+              aggregateProjects[projectId][2][element],((aggregateProjects[projectId][3][element]*100)/(aggregateProjects[projectId][3][element]+aggregateProjects[projectId][1][element])),
+              (aggregateProjects[projectId][1][element] || 'none')
+            ])
+          }
+
         })
         console.log(dropRateRow)
         dropRateDataRows.push(dropRateRow)
