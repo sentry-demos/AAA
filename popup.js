@@ -1086,7 +1086,10 @@ async function checkMobileUseCase(org) {
         let resolvedPercentage = ( (resolved*100) / (resolved+unResolved) )
         if (resolvedPercentage > 5 || resolved > 1000) {useResolveWorkflow=true;} // Adding resolved
         let usesAllErrorTypes = false; // Convert this from true/false to displaying which error types exist/don't exist
-        let iosMechanismsUsed = iosMechanisms[9]['topValues'].filter(function (element) { return element['name']==projectName}).length > 0
+        let iosMechanismsUsed = false;
+        if (iosMechanisms.length>8){
+          iosMechanismsUsed = iosMechanisms[9]['topValues'].filter(function (element) { return element['name']==projectName}).length > 0
+        }
         let androidMechanisms = await fetch(`https://sentry.io/api/0/organizations/${org}/events/?field=mechanism&field=count%28%29&per_page=50&query=sdk.name%3Asentry.java.android%20%21event.type%3Atransaction%20mechanism%3A%5BSentryOkHttpInterceptor%2CANR%5D&sort=-mechanism&statsPeriod=30d`).then((r)=>{return r.json()})
         let androidMechanismsUsed = androidMechanisms['data'].length>0;
         let projectMechanisms = {};
