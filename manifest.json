@@ -13,7 +13,13 @@
           "popup.js",
           "engine.js"
           ]
-        }],
+        }], 
+    "icons": {
+          "16": "images/pup_16.png",
+          "32": "images/pup_32.png",
+          "48": "images/pup_48.png",
+          "64": "images/pup_64.png"
+    },
     "host_permissions": [
       "https://*.sentry.io/*"
     ],
