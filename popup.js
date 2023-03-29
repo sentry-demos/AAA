@@ -348,13 +348,9 @@ let outputRows = [
 ]
 
 let dropRateDataRows = [
-  ['Project Name/Org', 'Event Type', 'Percentage Dropped', 'Dropped Events', 'Filtered Events', 'Accepted Events']
+  ['Project Name/Org', 'Event Type', 'Percentage Dropped', 'Dropped Events', 'Filtered Events %', 'Accepted Events']
 ]
-// var selectedNumberOfIssues = document.getElementById("teamNumbers");
-// selectedNumberOfIssues.addEventListener("change",()=>{ document.getElementById('teamsIssueTable').remove(); addTeamSpan(sortedTeams.slice(-selectedNumberOfIssues.value));
-// })
-var checkOpen = 0
-var sortedTeams = []
+
 let sourceControlDict = ['github','bitbucket','gitlab'];
 let messagingDict = ['slack','ms-teams','teams'];
 let issueTrackingDict = ['JIRA','jira','azure'];
@@ -362,29 +358,17 @@ let checkNonMobile = true;
 let startingDiv = document.createElement('div')
 startingDiv.id = 'startingDiv';
 var checkbox = document.createElement('input');
-             
-// Assigning the attributes
-// to created checkbox
+
 checkbox.type = "checkbox";
 checkbox.name = "MobileProjectCheck";
 checkbox.value = false;
 checkbox.id = "MobileProjectCheck";
-// creating label for checkbox
 var label = document.createElement('label');
  
-// assigning attributes for
-// the created label tag
 label.htmlFor = "MobileProjectCheck";
  
-// appending the created text to
-// the created label tag
 label.appendChild(document.createTextNode('Tick for mobile only audit.'));
 
-
-// appending the checkbox
-// // and label to div
-// document.body.appendChild(checkbox);
-// document.body.appendChild(label);
 
 let startButton = document.createElement("BUTTON");
 let startLabel = document.createTextNode("Click me to run audit.");
@@ -463,9 +447,15 @@ async function start(org){
   var outboundArray = Object.keys(o).map(
     (key) => { return [key, o[key]] });
   outboundArray.forEach( (project) => {
-    project[1].sort((first, second) => { return first['priority'] - second['priority'] })
+    project[1].sort((first, second) => { return first['priority'] - second['priority'] });
+    project[1] = Array.from(new Set(project[1]))
+    project[1].forEach( (outbound) => {
+      outputRows.push([project[0],'"'+outbound['body']+'"',outbound['priority']*1])
+    })
   })
+  console.log(outputRows)
   console.log(outboundArray)
+
   let csvContent = "data:text/csv;charset=utf-8," + outputRows.map(e => e.join(",")).join("\n");
   var encodedUri = encodeURI(csvContent);
   var link = document.createElement("a");
@@ -545,7 +535,8 @@ async function checkAudit(org){
 
 function aggregateStats(apiResult) {
   // Not including 'rejected' outcome here since it's not immediately actionable by customer, usually it's a negligble amount caused due to network error or intermittent problems.
-  let ingestionRejectionDict = ['client_discard','rate_limited'] 
+  // let ingestionRejectionDict = ['client_discard','rate_limited'] 
+  let ingestionRejectionDict = ['rate_limited'] 
   let ingestionFilteredDict = ['filtered']
   let ingestionAcceptedDict = ['accepted']
   let acceptedStats = {}
@@ -701,6 +692,8 @@ async function checkProjectStats(org){
   var selectedNumberOfIssues = document.getElementById("teamNumbers").value;
   if(selectedNumberOfIssues < mobileProjects.length) {
     mobileProjects = mobileProjects.slice(0,selectedNumberOfIssues);
+  }
+  if(selectedNumberOfIssues < projects.length) { 
     projects = projects.slice(0,selectedNumberOfIssues);
   }
   document.getElementById("startingNumber").remove();
@@ -811,7 +804,15 @@ async function checkGenericProject(org,project){
     usingSessions = true;
   }
   let projectAlerts = alerts.filter( function (element) { return element['projects'].includes(projectName) })
-  let projAlertsUsingSlack = projectAlerts.filter( function (element) { return (element['triggers'][0]['actions'].length>0)  })
+  if (projectAlerts.length < 1){
+    alertApi = `https://sentry.io/api/0/organizations/${org}/combined-rules/?expand=latestIncident&expand=lastTriggered&sort=incident_status&sort=date_triggered&project=${projectId}`;
+    alerts = await fetch(alertApi).then((r)=> r.json()).then((result => {return result}));
+    projectAlerts = alerts.filter( function (element) { return element['projects'].includes(projectName) })
+  }
+  console.log(projectAlerts)
+  let projAlertsUsingSlack = projectAlerts.filter( function (element) { return ('triggers' in element)  })
+  projAlertsUsingSlack = projAlertsUsingSlack.filter( function (element) { return (element['triggers'].length>0)  })
+  projAlertsUsingSlack = projAlertsUsingSlack.filter( function (element) { return (element['triggers'][0]['actions'].length>0)  })
   projAlertsUsingSlack = projAlertsUsingSlack.filter( function (element) { return (messagingDict.includes(element['triggers'][0]['actions'][0]))  })
   let metricAlerts = projectAlerts.filter( function(element) { return element['dataset'] == 'metrics'})
   let crashFreeAlerts = metricAlerts.filter( function(element) { return element['aggregate'].includes('percentage(sessions_crashed, sessions)')}).length>0
@@ -878,14 +879,17 @@ async function checkGenericProject(org,project){
   aggregateProjects[projectId][0].forEach( element => {
 
     dropRateRow.push([
-      projectName, element, (((aggregateProjects[projectId][2][element]*100)/(aggregateProjects[projectId][2][element]+aggregateProjects[projectId][1][element])) || '100'),
-      aggregateProjects[projectId][2][element],(aggregateProjects[projectId][1][element] || 'none')
+      projectName, element, (((aggregateProjects[projectId][2][element]*100)/(aggregateProjects[projectId][2][element]+aggregateProjects[projectId][1][element])) + 
+      ((aggregateProjects[projectId][3][element]*100)/(aggregateProjects[projectId][3][element]+aggregateProjects[projectId][1][element]))|| '100'),
+      aggregateProjects[projectId][2][element],((aggregateProjects[projectId][3][element]*100)/(aggregateProjects[projectId][3][element]+aggregateProjects[projectId][1][element])),
+      (aggregateProjects[projectId][1][element] || 'none')
     ])
   })
   console.log(dropRateRow)
   dropRateDataRows.push(dropRateRow)
 
   allProjectAudits.push(projectData)
+
 
   
 }
@@ -1008,6 +1012,15 @@ async function checkMobileUseCase(org) {
           usingSessions = true;
         }
         let projectAlerts = alerts.filter( function (element) { return element['projects'].includes(projectName) })
+        if (projectAlerts.length < 1){
+          alertApi = `https://sentry.io/api/0/organizations/${org}/combined-rules/?expand=latestIncident&expand=lastTriggered&sort=incident_status&sort=date_triggered&project=${projectId}`;
+          alerts = await fetch(alertApi).then((r)=> r.json()).then((result => {return result}));
+          projectAlerts = alerts.filter( function (element) { return element['projects'].includes(projectName) })
+        }
+        let projAlertsUsingSlack = projectAlerts.filter( function (element) { return ('triggers' in element)  })
+        projAlertsUsingSlack = projAlertsUsingSlack.filter( function (element) { return (element['triggers'].length>0)  })
+        projAlertsUsingSlack = projAlertsUsingSlack.filter( function (element) { return (element['triggers'][0]['actions'].length>0)  })
+        projAlertsUsingSlack = projAlertsUsingSlack.filter( function (element) { return (messagingDict.includes(element['triggers'][0]['actions'][0]))  })
         let metricAlerts = projectAlerts.filter( function(element) { return element['dataset'] == 'metrics'})
         let crashFreeAlerts = metricAlerts.filter( function(element) { return element['aggregate'].includes('percentage(sessions_crashed, sessions)')}).length>0
         let assignmentApi = `https://sentry.io/api/0/organizations/${org}/issues/?collapse=stats&expand=owners&expand=inbox&limit=25&project=${projectId}&query=is%3Aunresolved%20is%3Aassigned&shortIdLookup=1&statsPeriod=14d`
@@ -1064,7 +1077,7 @@ async function checkMobileUseCase(org) {
           'projectName':projectName,'projectId':projectId,'environments':projEnvironmentCount>1,'hasDesymFiles':hasDesymbolicationFiles,
           'upgradeSdk':sdktoUpgrade,'useAllErrorTypes':iosMechanismsUsed || androidMechanismsUsed,'useResolveWorkflow':useResolveWorkflow,'assignments':assignmentPercentage,'ownershipRules':ownershipRulesSet,
           'sessions':usingSessions,'releases':usingReleases,'attachments':usingAttachments,'profiles':usingProfiling,'performance':usingPerformance,
-          'alerts':projectAlerts.length>0,'metricAlerts':metricAlerts.length>0,"Crash Free Alerts":crashFreeAlerts,"Platform":platform
+          'alerts':projectAlerts.length>0,'metricAlerts':metricAlerts.length>0,"Crash Free Alerts":crashFreeAlerts,"Platform":platform,'slackAlert':projAlertsUsingSlack.length>0
         };
         
 
@@ -1098,8 +1111,10 @@ async function checkMobileUseCase(org) {
           // console.log(element + " is dropping at alarming rate - " +(((aggregateProjects[projectId][2][element]*100)/(aggregateProjects[projectId][2][element]+aggregateProjects[projectId][1][element])) || '100') + "%")
           // console.log(aggregateProjects[projectId][2][element] + " dropped vs. " + (aggregateProjects[projectId][1][element] || 'none') + ' accepted.')
           dropRateRow.push([
-            projectName, element, (((aggregateProjects[projectId][2][element]*100)/(aggregateProjects[projectId][2][element]+aggregateProjects[projectId][1][element])) || '100'),
-            aggregateProjects[projectId][2][element],(aggregateProjects[projectId][1][element] || 'none')
+            projectName, element, (((aggregateProjects[projectId][2][element]*100)/(aggregateProjects[projectId][2][element]+aggregateProjects[projectId][1][element])) + 
+            ((aggregateProjects[projectId][3][element]*100)/(aggregateProjects[projectId][3][element]+aggregateProjects[projectId][1][element]))|| '100'),
+            aggregateProjects[projectId][2][element],((aggregateProjects[projectId][3][element]*100)/(aggregateProjects[projectId][3][element]+aggregateProjects[projectId][1][element])),
+            (aggregateProjects[projectId][1][element] || 'none')
           ])
         })
         console.log(dropRateRow)
