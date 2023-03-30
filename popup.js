@@ -894,8 +894,10 @@ async function checkGenericProject(org,project){
   resolved = Number(resolved)
   let resolvedPercentage = ( (resolved*100) / (resolved+unResolved) )
   if (resolvedPercentage > 5 || resolved > 1000) {useResolveWorkflow=true;} // Adding resolved
-
-  if (!(platform.includes('javascript') || platform.includes('vue'))){
+  
+  if(!platform){
+    hasMinifiedStacks = true;
+  } else if (!(platform.includes('javascript') || platform.includes('vue'))){
     hasMinifiedStacks = true;
   }
 
