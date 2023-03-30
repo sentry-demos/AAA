@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Sentry Audit Automator 3000",
     "description": "Saves you time in knowing how your accounts are doing.",
-    "version": "0.01",
+    "version": "0.1",
     "action": {
       "default_popup": "popup.html"
     },
