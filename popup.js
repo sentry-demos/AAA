@@ -539,10 +539,10 @@ async function checkAuth(org){
     outputRows[1][2] = 'No.'
   }
   else {
-    outputRows[1][1] = authUsage['require_link'];
+    outputRows[1][2] = authUsage['require_link'];
     orgObject.usesSso = authUsage['require_link'];
-    outputRows[1][2] = authUsage['scim_enabled'];
-    orgObject.usesScim = authUsage['require_link'];
+    outputRows[1][1] = authUsage['scim_enabled'];
+    orgObject.usesScim = authUsage['scim_enabled'];
     // console.log("SSO enabled: "+authUsage['require_link']);
     // console.log("SCIM enabled: "+authUsage['scim_enabled']);
   }
@@ -894,7 +894,7 @@ async function checkGenericProject(org,project){
   resolved = Number(resolved)
   let resolvedPercentage = ( (resolved*100) / (resolved+unResolved) )
   if (resolvedPercentage > 5 || resolved > 1000) {useResolveWorkflow=true;} // Adding resolved
-  
+
   if(!platform){
     hasMinifiedStacks = true;
   } else if (!(platform.includes('javascript') || platform.includes('vue'))){
