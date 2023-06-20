@@ -9,9 +9,11 @@
     "content_scripts": [
       {
         "matches": ["https://*/*"],
+
         "js": [
           "popup.js",
-          "engine.js"
+          "engine.js",
+          "sentry.js"
           ]
         }], 
     "icons": {
