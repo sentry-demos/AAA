@@ -1,5 +1,9 @@
 // const {mockAccount} = import('./engine.js');
 import {RULE_ENGINE} from './engine.js';
+// import {*} from './sentry.js';
+// import Sentry from './sentry.js';
+// import * as Sentry from './node_modules/@sentry/browser';
+
 const api = "https://sentry.io/api/0/organizations/"
 let url;
 
@@ -8,12 +12,106 @@ let url;
 function currentOrg(){
   chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
     var activeTab = tabs[0];
-    url = activeTab.url; 
-    const org = url.split('.sentry.io')[0] 
-    start(org.substring(8));
+    url = activeTab.url;
+    let org = ''
+    if (window.location.hash.includes('#window')) {
+      org = window.location.hash.split('#window')[1];
+    } else {
+      org = url.split('.sentry.io')[0].substring(8);
+    }
+    start(org);
   });
 
 }
+
+function openNewTab(){
+  chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+    var activeTab = tabs[0];
+    url = activeTab.url; 
+    const org = url.split('.sentry.io')[0].substring(8); 
+    chrome.tabs.create({url: 'popup.html#window'+org});
+  });
+}
+
+function createTable(dataObject,outboundArray){
+
+  console.log("table creation")
+  console.log(dataObject)
+  var tableDiv = document.createElement('div');
+  tableDiv.style.overflow = 'scroll';
+  // tableDiv.style.overflow = 'auto';
+  'overflow:scroll;height:80px;width:100%;overflow:auto'
+  var tbl = document.createElement('table');
+  tbl.setAttribute('id','auditResults');
+  tbl.style.border = '1px solid black';
+  outputRows[3].forEach( (cellValue) => {
+    const row = tbl.insertRow();
+    const firstCell = row.insertCell();
+    var text = document.createTextNode(cellValue);
+    firstCell.appendChild(text);
+    firstCell.style.border = '1px solid black';
+    dataObject['org']['projects'].forEach((project)=>{
+      let cell = row.insertCell()
+      text = document.createTextNode(project)
+    })
+    
+  })
+  let i = 0;  
+  dataObject['org']['projects'].forEach( (project) => {
+    console.log(project)
+    for(let key in project){
+      console.log(key)
+      let cell = tbl.rows[i].insertCell();
+      var text = document.createTextNode(project[key]);
+      cell.appendChild(text);
+      cell.style.border = '1px solid black';
+      switch(project[key]) {
+        case goodThresholds[i]:
+          cell.style.color = 'green';break;
+        default:
+          if (key == 'sdkUpdates') { cell.style.color = 'red';break; }
+          if (goodThresholds[i] == 'Any' || goodThresholds[i] == 0) {
+            cell.style.color = 'green';break;
+          } else if (goodThresholds[i].constructor != null && goodThresholds[i].constructor === Array) {
+            if(project[key] > goodThresholds[i][1]) {
+              cell.style.color = 'green';break;
+            } else if (project[key] > goodThresholds[i][0]) {
+              cell.style.color = 'yellow';break;
+            }
+          }
+          cell.style.color = 'red';break;
+      }
+      i += 1;
+    }
+    i = 0;
+  })
+  // let row = tbl.insertRow();
+  // let firstCell = row.insertCell();
+  // var text = document.createTextNode('Outcomes');
+  // firstCell.appendChild(text);
+  // firstCell.style.border = '1px solid black';
+  // console.log(outboundArray);
+  // outboundArray.forEach( (project) => {
+  //   project[1].sort((first, second) => { return first['priority'] - second['priority'] });
+  //   let outcomeCell = row.insertCell();
+  //   let aggProjOutcomes = ''
+    
+  //   project[1].forEach( (outbound) => {
+  //     aggProjOutcomes.concat(" ",outbound['body']," Priority: ",outbound['priority'],".")
+  //   })
+  //   text = document.createTextNode(aggProjOutcomes);
+  //   outcomeCell.appendChild(text);
+  // })
+  // let cell = tbl.rows[i].insertCell();
+  // var text = document.createTextNode(project[key]);
+  // cell.appendChild(text);
+  // cell.style.border = '1px solid black';
+  // i += 1;
+  i = 0;
+  tableDiv.appendChild(tbl);
+  document.body.appendChild(tableDiv);
+}
+
 
 
   // .NET / Flutter additions
@@ -368,17 +466,71 @@ class Project {
   // 'alerts':projectAlerts.length>0,'metricAlerts':metricAlerts.length>0,"Crash Free Alerts":crashFreeAlerts
 // };
 
+// //       this.name = name;
+// this.id = id;
+// this.usesEnvironments = usesEnvironments;
+// this.hasMinifiedStackTrace = hasMinifiedStackTrace;
+// this.sdkUpdates = sdkUpdates;
+// this.useResolveWorkflow = useResolveWorkflow;
+// this.assignmentPercentage = assignmentPercentage;
+// this.ownershipRules = ownershipRules
+// this.usingSessions = usingSessions;
+// this.usingReleases = usingReleases;
+// this.usingPerformance = usingPerformance;
+// this.usingAttachments = usingAttachments;
+// this.usingProfiling = usingProfiling;
+// this.alertsSet = alertsSet;
+// this.metricAlerts = metricAlerts;
+// this.crashFreeAlerts = crashFreeAlerts;
+// this.messagingIntegration = messagingIntegration;
+// this.isMobile = isMobile;
+// this.linksIssues = linksIssues;
+// this.platforms = platforms;
+// this.usesAllErrorTypes = usesAllErrorTypes;
+// this.httpIsInstrumented = httpIsInstrumented;
+// this.dbIsInstrumented = dbIsInstrumented;
+// this.uiIsInstrumented = uiIsInstrumented;
+
+let outputRowToProperty = ['name','id','usesEnvironments','hasMinifiedStackTrace','sdkUpdates','usesAllErrorTypes','useResolveWorkflow','assignmentPercentage','ownershipRules','usingSessions',
+'usingReleases','usingAttachments','usingProfiling','usingPerformance','alertsSet','metricAlerts','crashFreeAlerts','platforms','messagingIntegration','dbIsInstrumented','uiIsInstrumented','httpIsInstrumented']
 let outputRows = [
   [
   'Organization Name', 'Using SCIM', 'Using SSO', 'Using Messaging Integration', 'Using SCM Integration', 'Using Issue Tracking Integration',
   'Projects Created Recently', 'Members Invited Recently', 'Teams have been used recently (Either created or joined)', 'Project Settings edited recently', 'Renewal in next 6 months',
   'Average Error Quota Usage over the past 6 months', 'Average Txn Quota Usage over the past 6 months', 'Average Attachment Quota Usage over the past 6 months'
   ],[],[],[
-    'Project Name','Project Id','Project Uses Environments?','Project has minified Stacktraces?', 'Sdk version to upgrade', 'Uses all Error Types', 'Issue Workflow is used? (Issues get Resolved)',
-    '% Of issues that are assigned', 'Ownership Rules are set', 'Sessions are being sent?', 'Releases are being created?', 'Attachments are being sent?', 'Profiles are being used?',
-    'Performance is used in this project?', 'Project has alerts set up?', 'Project has metric alerts set up?', 'Project has a CFSR Alert?','Project Platform','Project has an alert which utilises a messaging integration',
-    'DB Spans Instrumented (perf issues)', 'UI Spans Instrumented', 'HTTP Spans Instrumented'
+    'Project Name','Project Id','Project Uses Environments?','Project has minified Stacktraces?', 'Sdk version to upgrade', 'Issue Workflow is used? (Issues get Resolved)',
+    '% Of issues that are assigned', 'Ownership Rules are set', 'Sessions are being sent?', 'Releases are being created?', 'Performance is used in this project?', 'Attachments are being sent?',
+    'Profiles are being used?', 'Project has alerts set up?', 'Project has metric alerts set up?', 'Project has a CFSR Alert?','Project has an alert which utilises a messaging integration', 'Project is Mobile',
+    'Project links issues', 'Project Platform', 'Uses all Error Types', 'HTTP Spans Instrumented','DB Spans Instrumented (perf issues)', 'UI Spans Instrumented'
   ]
+]
+
+let goodThresholds = [
+  0, // Name
+  0, // id
+  true, // usesEnvironments
+  false, // hasMinifiedStackTrace
+  null, // sdkUpdates
+  true, // useResolveWorkflow
+  [15,70], // assignmentPercentage
+  true, // ownershipRules
+  true, // usingSessions
+  true, // usingReleases
+  true, // usingPerformance
+  true, // usingAttachments
+  true, // usingProfiling
+  true, // alertsSet
+  true, // metricAlerts
+  true, // crashFreeAlerts
+  true, // messagingIntegration
+  'Any', // isMobile
+  true, // linksIssues
+  'Any', // platforms
+  true, // usesAllErrorTypes
+  true, // httpIsInstrumented
+  true, // dbIsInstrumented
+  true // uiIsInstrumented
 ]
 
 let dropRateDataRows = [
@@ -389,6 +541,13 @@ let sourceControlDict = ['github','bitbucket','gitlab'];
 let messagingDict = ['slack','ms-teams','teams'];
 let issueTrackingDict = ['JIRA','jira','azure'];
 let checkNonMobile = true;
+
+// UI Creation
+let displayAsTab = false;
+if (window.location.hash.includes('#window')) {
+  displayAsTab = true;
+}
+
 let startingDiv = document.createElement('div')
 startingDiv.id = 'startingDiv';
 var checkbox = document.createElement('input');
@@ -403,16 +562,23 @@ label.htmlFor = "MobileProjectCheck";
  
 label.appendChild(document.createTextNode('Tick for mobile only audit.'));
 
-
+let newTabButton = document.createElement("BUTTON");
+let newTabLabel = document.createTextNode("Click to open in new tab.");
 let startButton = document.createElement("BUTTON");
 let startLabel = document.createTextNode("Click me to run audit.");
 startButton.appendChild(startLabel);
+newTabButton.appendChild(newTabLabel);
 startButton.onclick = currentOrg;
-
+newTabButton.onclick = openNewTab;
 startingDiv.appendChild(checkbox);
 startingDiv.appendChild(label);
 startingDiv.appendChild(startButton);
+if(!displayAsTab) {
+  startingDiv.appendChild(newTabButton);
+}
 document.body.appendChild(startingDiv);
+
+
 
 
 async function start(org){
@@ -423,13 +589,19 @@ async function start(org){
     checkNonMobile = false;
   }
   document.getElementById('startingDiv').remove()
+  try { // Using an ugly catch-all try-catch statement here because window.onerror appears to be faulty in chrome extensions
+    // See https://bugs.chromium.org/p/chromium/issues/detail?id=457785
+    
   checkIntegrations(org);
   checkAuth(org);
   checkAudit(org);
+  orgSubscriptionApi = orgSubscriptionApi.replace('{org}',org);
   await checkOrgStats(org);
   console.log(orgObject);
-
-  await checkProjectStats(org);
+  let orgIsTeamsPlan = await fetch(orgSubscriptionApi).then((r)=> r.json()).then((result => {return result}));
+  console.log(orgIsTeamsPlan);
+  orgIsTeamsPlan = orgIsTeamsPlan['plan'].includes('team');
+  await checkProjectStats(org,orgIsTeamsPlan);
   await checkMobileUseCase(org);
 
   dropRateDataRows.forEach( element => {
@@ -447,6 +619,7 @@ async function start(org){
   let projectsArray = []
   allProjectAudits.forEach( project => {
     let projObject = new Project(project['projectName']);
+    projObject.id = project['projectId'];
     projObject.alertsSet = project['alerts'];
     projObject.assignmentPercentage = project['assignments'];
     projObject.crashFreeAlerts = project['Crash Free Alerts'];
@@ -465,15 +638,14 @@ async function start(org){
     projObject.messagingIntegration = project['slackAlert']
     if (project['useAllErrorTypes'] != 'null') {
       projObject.projectIsMobile = true;
-        projObject.httpIsInstrumented = project['httpSpansInstrumented']
-        projObject.dbIsInstrumented = project['dbSpansInstrumented']
-        projObject.uiIsInstrumented = project['uiSpansInstrumented']
-      }
-      // 'dbSpansInstrumented':dbInstrumented,'uiSpansInstrumented':uiInstrumented,'httpSpansInstrumented':httpInstrumented
-      
-      if(projectsArray.filter( function (element) { return element.name == projObject.name }).length<1){
-        projectsArray.push(projObject);
-      }
+      projObject.httpIsInstrumented = project['httpSpansInstrumented']
+      projObject.dbIsInstrumented = project['dbSpansInstrumented']
+      projObject.uiIsInstrumented = project['uiSpansInstrumented']
+    }
+    projObject.linksIssues = project['linksIssues']
+    if(projectsArray.filter( function (element) { return element.name == projObject.name }).length<1){
+      projectsArray.push(projObject);
+    }
     
 
 
@@ -488,6 +660,8 @@ async function start(org){
   outputRows.push(['Project Name','Outbound Message','Priority'])
   var outboundArray = Object.keys(o).map(
     (key) => { return [key, o[key]] });
+
+  createTable(objForEval,outboundArray);
   outboundArray.forEach( (project) => {
     project[1].sort((first, second) => { return first['priority'] - second['priority'] });
     project[1] = Array.from(new Set(project[1]))
@@ -505,6 +679,11 @@ async function start(org){
   link.setAttribute("download", `${org}_audit.csv`);
   link.innerText = "Download as CSV";
   document.body.appendChild(link);
+  } catch (error) {
+    console.log(error)
+    alert('Audit failed due to an inability to query the API. Please refresh the Sentry page for '+org+ ', authenticate as super user, and try again.');
+    alert('Please also send a message to #proj-se-audit-automation with the org you were attempting to audit if this does not work.')
+  }
 
   // console.log('projects without Crash Free Alerts')
   // console.log(allProjectAudits.filter(function (element) { return element['Crash Free Alerts'] == false }))
@@ -707,36 +886,41 @@ async function checkOrgStats(org){
 }
 
 
-async function checkProjectStats(org){
+async function checkProjectStats(org,isTeamsOrg = false){
  
   projectSdkApi = projectSdkApi.replace('{org}',org);
   projectStatsApi = projectStatsApi.replace('{org}',org);
   projectsApi = projectsApi.replace('{org}',org);
 
+  if (!isTeamsOrg){
+    projectSdkStats = await fetch(projectSdkApi).then((r)=> r.json()).then((result => {return result}));
+    mobileProjects = projectSdkStats['data'].filter( function (element)  {
+      return ( mobileSdks.includes(element['sdk.name']) && element['count()'] > 100) 
+    });
+    mobileProjects.sort(function(a,b){return b['count()']-a['count()']});
   
-  projectSdkStats = await fetch(projectSdkApi).then((r)=> r.json()).then((result => {return result}));
+    projects =  projectSdkStats['data'].filter( function (element)  {
+      return ( !(mobileSdks.includes(element['sdk.name'])) && element['count()'] > 100) 
+    });
+  
+    projects.sort(function(a,b){return b['count()']-a['count()']});
+    var selectedNumberOfIssues = document.getElementById("teamNumbers").value;
+    if(selectedNumberOfIssues < mobileProjects.length) {
+      mobileProjects = mobileProjects.slice(0,selectedNumberOfIssues);
+    }
+    if(selectedNumberOfIssues < projects.length) { 
+      projects = projects.slice(0,selectedNumberOfIssues);
+    }
+  } else {
+    projects = await fetch(projectsApi).then((r)=> r.json()).then((result => {return result}));
+  
+  }
   projectStats = await fetch(projectStatsApi).then((r)=> r.json()).then((result => {return result}));
-  // projects = await fetch(projectsApi).then((r)=> r.json()).then((result => {return result}));
+  
 
   
 
-  mobileProjects = projectSdkStats['data'].filter( function (element)  {
-    return ( mobileSdks.includes(element['sdk.name']) && element['count()'] > 100) 
-  });
-  mobileProjects.sort(function(a,b){return b['count()']-a['count()']});
 
-  projects =  projectSdkStats['data'].filter( function (element)  {
-    return ( !(mobileSdks.includes(element['sdk.name'])) && element['count()'] > 100) 
-  });
-
-  projects.sort(function(a,b){return b['count()']-a['count()']});
-  var selectedNumberOfIssues = document.getElementById("teamNumbers").value;
-  if(selectedNumberOfIssues < mobileProjects.length) {
-    mobileProjects = mobileProjects.slice(0,selectedNumberOfIssues);
-  }
-  if(selectedNumberOfIssues < projects.length) { 
-    projects = projects.slice(0,selectedNumberOfIssues);
-  }
   document.getElementById("startingNumber").remove();
   let x = 0;
   let progress = 0;
@@ -745,14 +929,15 @@ async function checkProjectStats(org){
     for (let project of projects){
       x+=1;
       progress = ((x*100) / projects.length);
+      let projectName = project['project'] || project['slug']
       document.getElementById("nonMobileProgressBar").style = `height:24px;width:${progress}%`
       // console.log(project)
-      if (!(projectsQueried.includes(project['project']))){
-        projectsQueried.push(project['project']);
-        let projectApi = `https://sentry.io/api/0/organizations/${org}/projects/?query=${project['project']}`;
+      if (!(projectsQueried.includes(projectName))){
+        projectsQueried.push(projectName);
+        let projectApi = `https://sentry.io/api/0/organizations/${org}/projects/?query=${projectName}`;
         let apiResult = await fetch(projectApi).then((r)=> r.json()).then((result => {return result}));
         apiResult = apiResult.filter( function (element) {
-          return element['slug'] == project['project'];
+          return element['slug'] == projectName;
         })[0]
         let projectId = apiResult['id'];
         let singleProjectArray = projectStats.groups.filter( function (element) {
@@ -764,7 +949,7 @@ async function checkProjectStats(org){
         console.log(singleProjectArray)
         if(singleProjectArray.length>0){
           aggregateProjects[projectId] = aggregateStats(singleProjectArray);
-          aggregateProjects[projectId].push(project['project'])
+          aggregateProjects[projectId].push(projectName)
           await checkGenericProject(org,projectId);
         }
       }
@@ -861,11 +1046,18 @@ async function checkGenericProject(org,project){
   let assigned = await fetch(assignmentApi).then((r)=> {return r.headers.get('x-hits')})
   assigned = Number(assigned) 
   assignmentApi = `https://sentry.io/api/0/organizations/${org}/issues/?collapse=stats&expand=owners&expand=inbox&limit=25&project=${projectId}&query=is%3Aunresolved&shortIdLookup=1&statsPeriod=14d`
-  let unAssigned = await fetch(assignmentApi).then((r)=> {return r.headers.get('x-hits')}) 
-  unAssigned = Number(unAssigned)
+  let totalIssues = await fetch(assignmentApi).then((r)=> {return r.headers.get('x-hits')}) 
+  let unAssigned = Number(totalIssues)
   let unResolved = unAssigned
   unAssigned = unAssigned - assigned
   let assignmentPercentage = ( (assigned* 100) / (unAssigned+assigned) ) 
+  let linkedApi = `https://sentry.io/api/0/organizations/${org}/issues/?collapse=stats&expand=owners&expand=inbox&limit=25&project=${projectId}&query=is%3Aunresolved%20is%3Alinked&shortIdLookup=1&statsPeriod=30d` // setting to 30days
+  let linked = await fetch(linkedApi).then((r)=> {return r.headers.get('x-hits')})
+  linked = Number(linked)
+  let unLinked = Number(totalIssues) - linked;
+  let linkedPercentage = ( (linked* 100) / (unLinked+linked) )
+  let linkingIssues = false;
+  if (linkedPercentage > 5 || linked > 500) {linkingIssues=true;} // Adding resolved
   let useResolveWorkflow = false;
   let resolvedApi = `https://sentry.io/api/0/organizations/${org}/issues/?collapse=stats&expand=owners&expand=inbox&limit=25&project=${projectId}&query=is%3Aresolved&shortIdLookup=1&statsPeriod=14d`
   let resolved = await fetch(resolvedApi).then((r)=> {return r.headers.get('x-hits')})
@@ -905,7 +1097,7 @@ async function checkGenericProject(org,project){
     'projectName':projectName,'projectId':projectId,'environments':projEnvironmentCount>1,'hasDesymFiles':!hasMinifiedStacks,
     'upgradeSdk':sdktoUpgrade,'useAllErrorTypes':'null','useResolveWorkflow':useResolveWorkflow,'assignments':assignmentPercentage,'ownershipRules':ownershipRulesSet,
     'sessions':usingSessions,'releases':usingReleases,'attachments':usingAttachments,'profiles':usingProfiling,'performance':usingPerformance,
-    'alerts':projectAlerts.length>0,'metricAlerts':metricAlerts.length>0,"Crash Free Alerts":crashFreeAlerts,"Platform":platform,'slackAlert':projAlertsUsingSlack.length>0
+    'alerts':projectAlerts.length>0,'metricAlerts':metricAlerts.length>0,"Crash Free Alerts":crashFreeAlerts,"Platform":platform,'slackAlert':projAlertsUsingSlack.length>0,'linksIssues':linkingIssues
   };
   
   let row = []
@@ -1072,21 +1264,27 @@ async function checkMobileUseCase(org) {
         let assigned = await fetch(assignmentApi).then((r)=> {return r.headers.get('x-hits')})
         assigned = Number(assigned) 
         assignmentApi = `https://sentry.io/api/0/organizations/${org}/issues/?collapse=stats&expand=owners&expand=inbox&limit=25&project=${projectId}&query=is%3Aunresolved&shortIdLookup=1&statsPeriod=14d`
-        let unAssigned = await fetch(assignmentApi).then((r)=> {return r.headers.get('x-hits')}) 
-        unAssigned = Number(unAssigned)
+        let totalIssues = await fetch(assignmentApi).then((r)=> {return r.headers.get('x-hits')}) 
+        let unAssigned = Number(totalIssues)
         let unResolved = unAssigned
         unAssigned = unAssigned - assigned
         let ownershipRulesApi = `https://sentry.io/api/0/projects/${org}/${projectName}/ownership/`
-        let ownershipRulesSet = await fetch(ownershipRulesApi).then((r)=> r.json()).then((result => {return result}));
-
+        let ownershipRulesSet = await fetch(ownershipRulesApi).then((r)=> r.json()).then((result => {return result}));        
         ownershipRulesSet = ownershipRulesSet['raw'] != null
         let assignmentPercentage = ( (assigned* 100) / (unAssigned+assigned) ) 
+        let linkedApi = `https://sentry.io/api/0/organizations/${org}/issues/?collapse=stats&expand=owners&expand=inbox&limit=25&project=${projectId}&query=is%3Aunresolved%20is%3Alinked&shortIdLookup=1&statsPeriod=30d` // setting to 30days
+        let linked = await fetch(linkedApi).then((r)=> {return r.headers.get('x-hits')})
+        linked = Number(linked)
+        let unLinked = Number(totalIssues) - linked;
+        let linkedPercentage = ( (linked* 100) / (unLinked+linked) )
+        let linkingIssues = false;
+        if (linkedPercentage > 5 || linked > 500) {linkingIssues=true;} // Adding resolved
         let useResolveWorkflow = false;
         let resolvedApi = `https://sentry.io/api/0/organizations/${org}/issues/?collapse=stats&expand=owners&expand=inbox&limit=25&project=${projectId}&query=is%3Aresolved&shortIdLookup=1&statsPeriod=14d`
         let resolved = await fetch(resolvedApi).then((r)=> {return r.headers.get('x-hits')}) 
         resolved = Number(resolved) 
         let resolvedPercentage = ( (resolved*100) / (resolved+unResolved) )
-        if (resolvedPercentage > 5 || resolved > 1000) {useResolveWorkflow=true;} // Adding resolved
+        if (resolvedPercentage > 5 || resolved > 500) {useResolveWorkflow=true;} // Adding resolved
         let usesAllErrorTypes = false; // Convert this from true/false to displaying which error types exist/don't exist
         let iosMechanismsUsed = false;
         if (iosMechanisms.length>8){
@@ -1148,7 +1346,7 @@ async function checkMobileUseCase(org) {
           'upgradeSdk':sdktoUpgrade,'useAllErrorTypes':iosMechanismsUsed || androidMechanismsUsed,'useResolveWorkflow':useResolveWorkflow,'assignments':assignmentPercentage,'ownershipRules':ownershipRulesSet,
           'sessions':usingSessions,'releases':usingReleases,'attachments':usingAttachments,'profiles':usingProfiling,'performance':usingPerformance,
           'alerts':projectAlerts.length>0,'metricAlerts':metricAlerts.length>0,"Crash Free Alerts":crashFreeAlerts,"Platform":platform,'slackAlert':projAlertsUsingSlack.length>0,
-          'dbSpansInstrumented':dbInstrumented,'uiSpansInstrumented':uiInstrumented,'httpSpansInstrumented':httpInstrumented
+          'dbSpansInstrumented':dbInstrumented,'uiSpansInstrumented':uiInstrumented,'httpSpansInstrumented':httpInstrumented,'linksIssues':linkingIssues
         };
         
 
@@ -1239,6 +1437,8 @@ async function checkIntegrations(org) {
   orgObject.usesScm = scmIntegrations.length > 0;
   orgObject.usesIssueInt = issueIntegrations.length > 0;
 }  
+
+
 
 
  /** 
