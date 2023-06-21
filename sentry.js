@@ -1,5 +1,5 @@
 /*! @sentry/browser & @sentry/tracing 7.51.1 (c9f66ed) | https://github.com/getsentry/sentry-javascript */
-var Sentry = (function (exports) {
+export var Sentry = (function (exports) {
 
     /**
      * This is a shim for the Replay integration.

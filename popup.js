@@ -1,13 +1,16 @@
 // const {mockAccount} = import('./engine.js');
 import {RULE_ENGINE} from './engine.js';
-// import {*} from './sentry.js';
+import {Sentry} from './sentry.js';
 // import Sentry from './sentry.js';
 // import * as Sentry from './node_modules/@sentry/browser';
 
 const api = "https://sentry.io/api/0/organizations/"
 let url;
 
-
+Sentry.init({
+  dsn: 'https://e258480b2d8d464cba5b4b41e545df84@o87286.ingest.sentry.io/4505150139006976',
+  release: "audit-autmator-extension@0.5"
+});
 
 function currentOrg(){
   chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
@@ -1023,6 +1026,7 @@ async function checkGenericProject(org,project){
     enoughSessions = apiResult['groups'].filter( function (element) { return ( (element['totals']['sum(sessions)'] > 1000) || (element['totals']['sum(session)'] > 1000) ) })
   } catch(ex) {
     console.log(ex)
+    sentryHub.captureException(ex);
     console.log('sessions failed? for')
     console.log(projectName)
   }
