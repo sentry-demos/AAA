@@ -595,10 +595,13 @@ async function start(org){
   checkIntegrations(org);
   checkAuth(org);
   checkAudit(org);
+  orgSubscriptionApi = orgSubscriptionApi.replace('{org}',org);
   await checkOrgStats(org);
   console.log(orgObject);
-
-  await checkProjectStats(org);
+  let orgIsTeamsPlan = await fetch(orgSubscriptionApi).then((r)=> r.json()).then((result => {return result}));
+  console.log(orgIsTeamsPlan);
+  orgIsTeamsPlan = orgIsTeamsPlan['plan'].includes('team');
+  await checkProjectStats(org,orgIsTeamsPlan);
   await checkMobileUseCase(org);
 
   dropRateDataRows.forEach( element => {
@@ -883,36 +886,41 @@ async function checkOrgStats(org){
 }
 
 
-async function checkProjectStats(org){
+async function checkProjectStats(org,isTeamsOrg = false){
  
   projectSdkApi = projectSdkApi.replace('{org}',org);
   projectStatsApi = projectStatsApi.replace('{org}',org);
   projectsApi = projectsApi.replace('{org}',org);
 
+  if (!isTeamsOrg){
+    projectSdkStats = await fetch(projectSdkApi).then((r)=> r.json()).then((result => {return result}));
+    mobileProjects = projectSdkStats['data'].filter( function (element)  {
+      return ( mobileSdks.includes(element['sdk.name']) && element['count()'] > 100) 
+    });
+    mobileProjects.sort(function(a,b){return b['count()']-a['count()']});
   
-  projectSdkStats = await fetch(projectSdkApi).then((r)=> r.json()).then((result => {return result}));
+    projects =  projectSdkStats['data'].filter( function (element)  {
+      return ( !(mobileSdks.includes(element['sdk.name'])) && element['count()'] > 100) 
+    });
+  
+    projects.sort(function(a,b){return b['count()']-a['count()']});
+    var selectedNumberOfIssues = document.getElementById("teamNumbers").value;
+    if(selectedNumberOfIssues < mobileProjects.length) {
+      mobileProjects = mobileProjects.slice(0,selectedNumberOfIssues);
+    }
+    if(selectedNumberOfIssues < projects.length) { 
+      projects = projects.slice(0,selectedNumberOfIssues);
+    }
+  } else {
+    projects = await fetch(projectsApi).then((r)=> r.json()).then((result => {return result}));
+  
+  }
   projectStats = await fetch(projectStatsApi).then((r)=> r.json()).then((result => {return result}));
-  // projects = await fetch(projectsApi).then((r)=> r.json()).then((result => {return result}));
+  
 
   
 
-  mobileProjects = projectSdkStats['data'].filter( function (element)  {
-    return ( mobileSdks.includes(element['sdk.name']) && element['count()'] > 100) 
-  });
-  mobileProjects.sort(function(a,b){return b['count()']-a['count()']});
 
-  projects =  projectSdkStats['data'].filter( function (element)  {
-    return ( !(mobileSdks.includes(element['sdk.name'])) && element['count()'] > 100) 
-  });
-
-  projects.sort(function(a,b){return b['count()']-a['count()']});
-  var selectedNumberOfIssues = document.getElementById("teamNumbers").value;
-  if(selectedNumberOfIssues < mobileProjects.length) {
-    mobileProjects = mobileProjects.slice(0,selectedNumberOfIssues);
-  }
-  if(selectedNumberOfIssues < projects.length) { 
-    projects = projects.slice(0,selectedNumberOfIssues);
-  }
   document.getElementById("startingNumber").remove();
   let x = 0;
   let progress = 0;
@@ -921,14 +929,15 @@ async function checkProjectStats(org){
     for (let project of projects){
       x+=1;
       progress = ((x*100) / projects.length);
+      let projectName = project['project'] || project['slug']
       document.getElementById("nonMobileProgressBar").style = `height:24px;width:${progress}%`
       // console.log(project)
-      if (!(projectsQueried.includes(project['project']))){
-        projectsQueried.push(project['project']);
-        let projectApi = `https://sentry.io/api/0/organizations/${org}/projects/?query=${project['project']}`;
+      if (!(projectsQueried.includes(projectName))){
+        projectsQueried.push(projectName);
+        let projectApi = `https://sentry.io/api/0/organizations/${org}/projects/?query=${projectName}`;
         let apiResult = await fetch(projectApi).then((r)=> r.json()).then((result => {return result}));
         apiResult = apiResult.filter( function (element) {
-          return element['slug'] == project['project'];
+          return element['slug'] == projectName;
         })[0]
         let projectId = apiResult['id'];
         let singleProjectArray = projectStats.groups.filter( function (element) {
@@ -940,7 +949,7 @@ async function checkProjectStats(org){
         console.log(singleProjectArray)
         if(singleProjectArray.length>0){
           aggregateProjects[projectId] = aggregateStats(singleProjectArray);
-          aggregateProjects[projectId].push(project['project'])
+          aggregateProjects[projectId].push(projectName)
           await checkGenericProject(org,projectId);
         }
       }
