@@ -9,7 +9,15 @@ let url;
 
 Sentry.init({
   dsn: 'https://e258480b2d8d464cba5b4b41e545df84@o87286.ingest.sentry.io/4505150139006976',
-  release: "audit-autmator-extension@0.5"
+  release: "audit-autmator-extension@0.5",
+  integrations: [
+    new Sentry.BrowserTracing({
+      // Set `tracePropagationTargets` to control for which URLs distributed tracing should be enabled
+      tracePropagationTargets: ["localhost", "sentry.io"],
+    }),
+  ],
+  autoSessionTracking: true,
+  tracesSampleRate: 1.0
 });
 
 function currentOrg(){
@@ -594,18 +602,30 @@ async function start(org){
   document.getElementById('startingDiv').remove()
   try { // Using an ugly catch-all try-catch statement here because window.onerror appears to be faulty in chrome extensions
     // See https://bugs.chromium.org/p/chromium/issues/detail?id=457785
-    
+  
+  var transaction = Sentry.startTransaction({ name: "checkIntegrations" });
   checkIntegrations(org);
+  transaction.finish();
+  transaction = Sentry.startTransaction({ name: "checkAuth" });
   checkAuth(org);
+  transaction.finish();
+  transaction = Sentry.startTransaction({ name: "checkAudit" });
   checkAudit(org);
+  transaction.finish();
   orgSubscriptionApi = orgSubscriptionApi.replace('{org}',org);
+  transaction = Sentry.startTransaction({ name: "checkOrgStats" });
   await checkOrgStats(org);
+  transaction.finish();
   console.log(orgObject);
   let orgIsTeamsPlan = await fetch(orgSubscriptionApi).then((r)=> r.json()).then((result => {return result}));
   console.log(orgIsTeamsPlan);
   orgIsTeamsPlan = orgIsTeamsPlan['plan'].includes('team');
+  transaction = Sentry.startTransaction({ name: "checkProjectStats" });
   await checkProjectStats(org,orgIsTeamsPlan);
+  transaction.finish();
+  transaction = Sentry.startTransaction({ name: "checkMobileUseCase" });
   await checkMobileUseCase(org);
+  transaction.finish();
 
   dropRateDataRows.forEach( element => {
     if(Array.isArray(element[0])) {
