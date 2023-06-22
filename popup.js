@@ -65,29 +65,32 @@ function createDropRateTable(dataObject){
     cell.appendChild(text);
     cell.style.border = '1px solid black';
   })
-
-  if(dataObject[1].length>1 || dataObject[1][0].constructor === Array){
-    dataObject[1].forEach((array) => {
-      const row = tbl.insertRow();
-      array.forEach((cellValue) =>{
-        const cell = row.insertCell();
-        var text = document.createTextNode(cellValue);
-        cell.appendChild(text);
-        cell.style.border = '1px solid black';
+  if(dataObject[1].length>0){
+    if(dataObject[1].length>1 || dataObject[1][0].constructor === Array){
+      dataObject[1].forEach((array) => {
+        const row = tbl.insertRow();
+        array.forEach((cellValue) =>{
+          const cell = row.insertCell();
+          var text = document.createTextNode(cellValue);
+          cell.appendChild(text);
+          cell.style.border = '1px solid black';
+        })
       })
-    })
-  } else {
-    for (let index = 1; index < dataObject.length; index++) {
-      const element = dataObject[index];
-      const row = tbl.insertRow();
-      element.forEach((cellValue) =>{
-        const cell = row.insertCell();
-        var text = document.createTextNode(cellValue);
-        cell.appendChild(text);
-        cell.style.border = '1px solid black';
-      })
+    } else {
+      for (let index = 1; index < dataObject.length; index++) {
+        const element = dataObject[index];
+        const row = tbl.insertRow();
+        element.forEach((cellValue) =>{
+          const cell = row.insertCell();
+          var text = document.createTextNode(cellValue);
+          cell.appendChild(text);
+          cell.style.border = '1px solid black';
+        })
+      }
     }
   }
+  
+  
 
   tableDiv.appendChild(tbl);
   document.body.appendChild(tableDiv);
@@ -988,7 +991,9 @@ async function checkOrgStats(org){
      )
      console.log(dropRateRow)
   })
-  dropRateDataRows.push(dropRateRow)
+  if (dropRateRow != []) {
+    dropRateDataRows.push(dropRateRow);
+  }
 
 
 
@@ -1232,8 +1237,9 @@ async function checkGenericProject(org,project){
     }
   })
   console.log(dropRateRow)
-  dropRateDataRows.push(dropRateRow)
-
+  if (dropRateRow != []) {
+    dropRateDataRows.push(dropRateRow);
+  }
   allProjectAudits.push(projectData)
 
 
@@ -1492,7 +1498,9 @@ async function checkMobileUseCase(org) {
 
         })
         console.log(dropRateRow)
-        dropRateDataRows.push(dropRateRow)
+        if (dropRateRow != []) {
+          dropRateDataRows.push(dropRateRow);
+        }
         allProjectAudits.push(projectData)
       }
     }
