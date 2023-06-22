@@ -1129,7 +1129,7 @@ async function checkGenericProject(org,project){
     enoughSessions = apiResult['groups'].filter( function (element) { return ( (element['totals']['sum(sessions)'] > 1000) || (element['totals']['sum(session)'] > 1000) ) })
   } catch(ex) {
     console.log(ex)
-    sentryHub.captureException(ex);
+    Sentry.captureException(ex);
     console.log('sessions failed? for')
     console.log(projectName)
   }
