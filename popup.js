@@ -188,7 +188,7 @@ function createTable(dataObject,outboundArray,csvOutput){
       const cell = row.insertCell();
       var text = document.createTextNode(cellValue);
       cell.appendChild(text);
-      if(text == 'false' || text =='0'){
+      if(cellValue == 'false' || cellValue == '0'){
         cell.backgroundColor = 'red';
       }
       cell.style.border = '1px solid black';
