@@ -12,10 +12,11 @@ Sentry.init({
     new Sentry.BrowserTracing({
       // Set `tracePropagationTargets` to control for which URLs distributed tracing should be enabled
       tracePropagationTargets: ["localhost", "api"],
-    }),
+    })
   ],
   autoSessionTracking: true,
-  tracesSampleRate: 1.0
+  tracesSampleRate: 1.0,
+  sendDefaultPii: true
 });
 
 function currentOrg(){
@@ -29,6 +30,8 @@ function currentOrg(){
       org = url.split('.sentry.io')[0].substring(8);
     }
     Sentry.setTag('org slug',org);
+    Sentry.setUser({ username: org });
+
     start(org);
   });
 
@@ -189,7 +192,7 @@ function createTable(dataObject,outboundArray,csvOutput){
       var text = document.createTextNode(cellValue);
       cell.appendChild(text);
       if(cellValue == 'false' || cellValue == '0'){
-        cell.backgroundColor = 'red';
+        cell.style.backgroundColor = 'red';
       }
       cell.style.border = '1px solid black';
     })
