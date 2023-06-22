@@ -1,8 +1,6 @@
 // const {mockAccount} = import('./engine.js');
 import {RULE_ENGINE} from './engine.js';
 import {Sentry} from './sentry.js';
-// import Sentry from './sentry.js';
-// import * as Sentry from './node_modules/@sentry/browser';
 
 const api = "https://sentry.io/api/0/organizations/"
 let url;
@@ -13,7 +11,7 @@ Sentry.init({
   integrations: [
     new Sentry.BrowserTracing({
       // Set `tracePropagationTargets` to control for which URLs distributed tracing should be enabled
-      tracePropagationTargets: ["localhost", "sentry.io"],
+      tracePropagationTargets: ["localhost", "api"],
     }),
   ],
   autoSessionTracking: true,
@@ -30,6 +28,7 @@ function currentOrg(){
     } else {
       org = url.split('.sentry.io')[0].substring(8);
     }
+    Sentry.setTag('org slug',org);
     start(org);
   });
 
@@ -44,14 +43,67 @@ function openNewTab(){
   });
 }
 
-function createTable(dataObject,outboundArray){
+function createDropRateTable(dataObject){
+  var tableDiv = document.createElement('div');
+  Sentry.addBreadcrumb({
+    category: "dataObject",
+    message: String(dataObject),
+    level: "info",
+  });
+  console.log(dataObject);
+  tableDiv.style.overflow = 'scroll';
+  var tbl = document.createElement('table');
+  tbl.setAttribute('id','dropRateRows');
+  tbl.style.border = '1px solid black';
+  const row = tbl.insertRow();
+  dataObject[0].forEach((cellValue) => {
+    const cell = row.insertCell();
+    var text = document.createTextNode(cellValue);
+    cell.appendChild(text);
+    cell.style.border = '1px solid black';
+  })
+
+  if(dataObject[1].length>1){
+    dataObject[1].forEach((array) => {
+      const row = tbl.insertRow();
+      array.forEach((cellValue) =>{
+        const cell = row.insertCell();
+        var text = document.createTextNode(cellValue);
+        cell.appendChild(text);
+        cell.style.border = '1px solid black';
+      })
+    })
+  } else {
+    for (let index = 1; index < dataObject.length; index++) {
+      const element = dataObject[index];
+      const row = tbl.insertRow();
+      element.forEach((cellValue) =>{
+        const cell = row.insertCell();
+        var text = document.createTextNode(cellValue);
+        cell.appendChild(text);
+        cell.style.border = '1px solid black';
+      })
+    }
+  }
+
+  tableDiv.appendChild(tbl);
+  document.body.appendChild(tableDiv);
+}
+
+function createTable(dataObject,outboundArray,csvOutput){
 
   console.log("table creation")
   console.log(dataObject)
+  Sentry.addBreadcrumb({
+    category: "dataObject",
+    message: String(dataObject),
+    level: "info",
+  });
+
   var tableDiv = document.createElement('div');
   tableDiv.style.overflow = 'scroll';
   // tableDiv.style.overflow = 'auto';
-  'overflow:scroll;height:80px;width:100%;overflow:auto'
+  // 'overflow:scroll;height:80px;width:100%;overflow:auto'
   var tbl = document.createElement('table');
   tbl.setAttribute('id','auditResults');
   tbl.style.border = '1px solid black';
@@ -78,19 +130,19 @@ function createTable(dataObject,outboundArray){
       cell.style.border = '1px solid black';
       switch(project[key]) {
         case goodThresholds[i]:
-          cell.style.color = 'green';break;
+          cell.style.backgroundColor = 'green';break;
         default:
-          if (key == 'sdkUpdates') { cell.style.color = 'red';break; }
+          if (key == 'sdkUpdates') { cell.style.backgroundColor = 'red';break; }
           if (goodThresholds[i] == 'Any' || goodThresholds[i] == 0) {
-            cell.style.color = 'green';break;
+            cell.style.backgroundColor = 'green';break;
           } else if (goodThresholds[i].constructor != null && goodThresholds[i].constructor === Array) {
             if(project[key] > goodThresholds[i][1]) {
-              cell.style.color = 'green';break;
+              cell.style.backgroundColor = 'green';break;
             } else if (project[key] > goodThresholds[i][0]) {
-              cell.style.color = 'yellow';break;
+              cell.style.backgroundColor = 'yellow';break;
             }
           }
-          cell.style.color = 'red';break;
+          cell.style.backgroundColor = 'red';break;
       }
       i += 1;
     }
@@ -121,6 +173,29 @@ function createTable(dataObject,outboundArray){
   i = 0;
   tableDiv.appendChild(tbl);
   document.body.appendChild(tableDiv);
+
+  var orgStatsDiv = document.createElement('div');
+  orgStatsDiv.style.overflow = 'scroll';
+  // tableDiv.style.overflow = 'auto';
+  // 'overflow:scroll;height:80px;width:100%;overflow:auto'
+  var orgStatsTable = document.createElement('table');
+  orgStatsTable.setAttribute('id','auditResults');
+  orgStatsTable.style.border = '1px solid black';
+  const orgStats = csvOutput.slice(0,2);
+  orgStats.forEach((array) => {
+    var row = orgStatsTable.insertRow();
+    array.forEach((cellValue)=> {
+      const cell = row.insertCell();
+      var text = document.createTextNode(cellValue);
+      cell.appendChild(text);
+      if(text == 'false' || text =='0'){
+        cell.backgroundColor = 'red';
+      }
+      cell.style.border = '1px solid black';
+    })
+  })
+  orgStatsDiv.appendChild(orgStatsTable);
+  document.body.appendChild(orgStatsDiv);
 }
 
 
@@ -683,8 +758,9 @@ async function start(org){
   outputRows.push(['Project Name','Outbound Message','Priority'])
   var outboundArray = Object.keys(o).map(
     (key) => { return [key, o[key]] });
-
-  createTable(objForEval,outboundArray);
+  var transaction = Sentry.startTransaction({ name: "createTable" });
+  createTable(objForEval,outboundArray,outputRows);
+  transaction.finish()
   outboundArray.forEach( (project) => {
     project[1].sort((first, second) => { return first['priority'] - second['priority'] });
     project[1] = Array.from(new Set(project[1]))
@@ -694,7 +770,12 @@ async function start(org){
   })
   console.log(outputRows)
   console.log(outboundArray)
-
+  if( dropRateDataRows.length > 1) {
+    var transaction = Sentry.startTransaction({ name: "createDropRateTable" });
+    createDropRateTable(dropRateDataRows);
+    transaction.finish();
+  }
+  
   let csvContent = "data:text/csv;charset=utf-8," + outputRows.map(e => e.join(",")).join("\n");
   var encodedUri = encodeURI(csvContent);
   var link = document.createElement("a");
@@ -704,8 +785,10 @@ async function start(org){
   document.body.appendChild(link);
   } catch (error) {
     console.log(error)
+    Sentry.captureException(error);
     alert('Audit failed due to an inability to query the API. Please refresh the Sentry page for '+org+ ', authenticate as super user, and try again.');
-    alert('Please also send a message to #proj-se-audit-automation with the org you were attempting to audit if this does not work.')
+    alert('Please also send a message to #proj-se-audit-automation with the org you were attempting to audit if this does not work.');
+    location.reload();
   }
 
   // console.log('projects without Crash Free Alerts')
@@ -1247,13 +1330,6 @@ async function checkMobileUseCase(org) {
         let sdkVersionToUpdate = sdkUpdates.filter( function (element) {
           return element['projectId'] == projectId;
         })
-
-        // {
-        //   "type": "changeSdk",
-        //   "newSdkName": "@sentry/browser",
-        //   "sdkUrl": "https://github.com/getsentry/sentry-javascript/blob/master/MIGRATION.md#migrating-from-raven-js-to-sentrybrowser",
-        //   "enables": []
-        //   }
 
         if (sdkVersionToUpdate.length>0) {
           if(sdkVersionToUpdate[0]['suggestions'][0]['newSdkVersion']){
