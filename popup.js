@@ -66,7 +66,7 @@ function createDropRateTable(dataObject){
     cell.style.border = '1px solid black';
   })
 
-  if(dataObject[1].length>1){
+  if(dataObject[1].length>1 || dataObject[1][0].constructor === Array){
     dataObject[1].forEach((array) => {
       const row = tbl.insertRow();
       array.forEach((cellValue) =>{
