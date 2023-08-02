@@ -1,13 +1,13 @@
 // const {mockAccount} = import('./engine.js');
 import {RULE_ENGINE} from './engine.js';
 import {Sentry} from './sentry.js';
-
+import {EXPLAINERS,ORG_EXPLAINERS} from './data-explainers.js';
+let debug = false;
 const api = "https://sentry.io/api/0/organizations/"
 let url;
-
 Sentry.init({
   dsn: 'https://e258480b2d8d464cba5b4b41e545df84@o87286.ingest.sentry.io/4505150139006976',
-  release: "audit-autmator-extension@0.5",
+  release: "audit-autmator-extension@1.0",
   integrations: [
     new Sentry.BrowserTracing({
       // Set `tracePropagationTargets` to control for which URLs distributed tracing should be enabled
@@ -16,7 +16,11 @@ Sentry.init({
   ],
   autoSessionTracking: true,
   tracesSampleRate: 1.0,
-  sendDefaultPii: true
+  sendDefaultPii: true,
+  beforeSend(event, hint) {
+    event.request.url = event.tags['org slug']
+    return event;
+  }
 });
 
 function currentOrg(){
@@ -25,7 +29,8 @@ function currentOrg(){
     url = activeTab.url;
     let org = ''
     if (window.location.hash.includes('#window')) {
-      org = window.location.hash.split('#window')[1];
+      // org = window.location.hash.split('#window')[1];
+      org = document.getElementById('orgSlugName').value;
     } else {
       org = url.split('.sentry.io')[0].substring(8);
     }
@@ -116,7 +121,10 @@ function createTable(dataObject,outboundArray,csvOutput){
   outputRows[3].forEach( (cellValue) => {
     const row = tbl.insertRow();
     const firstCell = row.insertCell();
-    var text = document.createTextNode(cellValue);
+    // var text = document.createTextNode(cellValue);
+    var text = document.createElement('abbr');
+    text.title = EXPLAINERS[cellValue];
+    text.textContent = cellValue;
     firstCell.appendChild(text);
     firstCell.style.border = '1px solid black';
     dataObject['org']['projects'].forEach((project)=>{
@@ -192,7 +200,14 @@ function createTable(dataObject,outboundArray,csvOutput){
     var row = orgStatsTable.insertRow();
     array.forEach((cellValue)=> {
       const cell = row.insertCell();
-      var text = document.createTextNode(cellValue);
+      if(cellValue in ORG_EXPLAINERS){
+        var text = document.createElement('abbr');
+        text.title = ORG_EXPLAINERS[cellValue];
+        text.textContent = cellValue;
+      }
+      else {
+        var text = document.createTextNode(cellValue);
+      }
       cell.appendChild(text);
       if(cellValue == 'false' || cellValue == '0'){
         cell.style.backgroundColor = 'red';
@@ -207,8 +222,10 @@ function createTable(dataObject,outboundArray,csvOutput){
 
 
   // .NET / Flutter additions
-const mobileSdks = ['sentry.java.android','sentry.cocoa','sentry.javascript.react-native','android','ios']
-const ingestionCategoryDict = ['sessions','profile','transaction_indexed','attachment','replay','error','transaction']
+const mobileSdks = ['sentry.java.android','sentry.cocoa','sentry.javascript.react-native','android','ios'];
+const frontEndSdks = ['sentry.javascript','javascript','react','sentry.javascript.react'];
+const backEndSdks = ['sentry.java','java','node','sentry.javascript.nodejs','nodejs','rails','ruby','express','sentry.javascript.express'];
+const ingestionCategoryDict = ['sessions','profile','transaction_indexed','attachment','replay','error','transaction'];
 
 let orgSubscriptionApi = `https://sentry.io/api/0/subscriptions/{org}/`
 let orgSubscriptionHistoryApi = 'https://{org}.sentry.io/api/0/customers/{org}/history/'
@@ -330,12 +347,13 @@ class Organization {
 }
 
 class Project {
-  constructor(name,id,usesEnvironments,hasMinifiedStackTrace,sdkUpdates,useResolveWorkflow,assignmentPercentage,ownershipRules,usingSessions,
-    usingReleases,usingAttachments,usingProfiling,messagingIntegration,usingPerformance,alertsSet,metricAlerts,crashFreeAlerts,linksIssues,platforms,usesAllErrorTypes,isMobile=false,httpIsInstrumented=true,
-    dbIsInstrumented=true,uiIsInstrumented=true){
+  constructor(name,id,usesEnvironments,platforms,hasMinifiedStackTrace,sdkUpdates,useResolveWorkflow,assignmentPercentage,ownershipRules,usingSessions,
+    usingReleases,usingAttachments,usingProfiling,messagingIntegration,usingPerformance,alertsSet,metricAlerts,crashFreeAlerts,linksIssues,usesAllErrorTypes,isMobile=false,httpIsInstrumented=true,
+    dbIsInstrumented=true,uiIsInstrumented=true,routerIsInstrumented = true,usingSessionReplay=true){
       this.name = name;
       this.id = id;
       this.usesEnvironments = usesEnvironments;
+      this.platforms = platforms;
       this.hasMinifiedStackTrace = hasMinifiedStackTrace;
       this.sdkUpdates = sdkUpdates;
       this.useResolveWorkflow = useResolveWorkflow;
@@ -352,11 +370,12 @@ class Project {
       this.messagingIntegration = messagingIntegration;
       this.isMobile = isMobile;
       this.linksIssues = linksIssues;
-      this.platforms = platforms;
       this.usesAllErrorTypes = usesAllErrorTypes;
       this.httpIsInstrumented = httpIsInstrumented;
       this.dbIsInstrumented = dbIsInstrumented;
       this.uiIsInstrumented = uiIsInstrumented;
+      this.routerIsInstrumented = routerIsInstrumented;
+      this.usingSessionReplay = usingSessionReplay;
       // this.isMobile = false;
     }
 
@@ -591,10 +610,10 @@ let outputRows = [
   'Projects Created Recently', 'Members Invited Recently', 'Teams have been used recently (Either created or joined)', 'Project Settings edited recently', 'Renewal in next 6 months',
   'Average Error Quota Usage over the past 6 months', 'Average Txn Quota Usage over the past 6 months', 'Average Attachment Quota Usage over the past 6 months'
   ],[],[],[
-    'Project Name','Project Id','Project Uses Environments?','Project has minified Stacktraces?', 'Sdk version to upgrade', 'Issue Workflow is used? (Issues get Resolved)',
+    'Project Name','Project Id','Project Uses Environments?','Project Platform', 'Project has minified Stacktraces?', 'Sdk version to upgrade', 'Issue Workflow is used? (Issues get Resolved)',
     '% Of issues that are assigned', 'Ownership Rules are set', 'Sessions are being sent?', 'Releases are being created?', 'Performance is used in this project?', 'Attachments are being sent?',
     'Profiles are being used?', 'Project has alerts set up?', 'Project has metric alerts set up?', 'Project has a CFSR Alert?','Project has an alert which utilises a messaging integration', 'Project is Mobile',
-    'Project links issues', 'Project Platform', 'Uses all Error Types', 'HTTP Spans Instrumented','DB Spans Instrumented (perf issues)', 'UI Spans Instrumented'
+    'Project links issues', 'Uses all Error Types', 'HTTP Spans Instrumented','DB Spans Instrumented (perf issues)', 'UI Spans Instrumented', 'Router Instrumented?', 'Using Session Replay?'
   ]
 ]
 
@@ -602,10 +621,11 @@ let goodThresholds = [
   0, // Name
   0, // id
   true, // usesEnvironments
+  'Any', // platforms
   false, // hasMinifiedStackTrace
   null, // sdkUpdates
   true, // useResolveWorkflow
-  [15,70], // assignmentPercentage
+  [5,45], // assignmentPercentage
   true, // ownershipRules
   true, // usingSessions
   true, // usingReleases
@@ -618,11 +638,12 @@ let goodThresholds = [
   true, // messagingIntegration
   'Any', // isMobile
   true, // linksIssues
-  'Any', // platforms
   true, // usesAllErrorTypes
   true, // httpIsInstrumented
   true, // dbIsInstrumented
-  true // uiIsInstrumented
+  true, // uiIsInstrumented
+  true, // routerIsInstrumented
+  true, // usingSessionReplay
 ]
 
 let dropRateDataRows = [
@@ -638,10 +659,15 @@ let checkNonMobile = true;
 let displayAsTab = false;
 if (window.location.hash.includes('#window')) {
   displayAsTab = true;
+  // Create a textbox to enter Org Slug
+  document.getElementById('enterOrgSlug').hidden = false;
+  document.getElementById('orgSlugName').value = window.location.hash.split('#window')[1];
 }
 
 let startingDiv = document.createElement('div')
 startingDiv.id = 'startingDiv';
+
+
 var checkbox = document.createElement('input');
 
 checkbox.type = "checkbox";
@@ -739,6 +765,7 @@ async function start(org){
     projObject.usesAllErrorTypes = project['useAllErrorTypes'];
     projObject.usingSessions = project['sessions'];
     projObject.platforms = project['Platform'];
+    projObject.usingSessionReplay = project['usingSessionReplay'];
     projObject.messagingIntegration = project['slackAlert']
     if (project['useAllErrorTypes'] != 'null') {
       projObject.projectIsMobile = true;
@@ -746,6 +773,9 @@ async function start(org){
       projObject.dbIsInstrumented = project['dbSpansInstrumented']
       projObject.uiIsInstrumented = project['uiSpansInstrumented']
     }
+    // projObject.httpClientErrors = project['httpErrors'];
+    projObject.routerIsInstrumented = project['routerInstrumentation'];
+
     projObject.linksIssues = project['linksIssues']
     if(projectsArray.filter( function (element) { return element.name == projObject.name }).length<1){
       projectsArray.push(projObject);
@@ -767,6 +797,7 @@ async function start(org){
   var transaction = Sentry.startTransaction({ name: "createTable" });
   createTable(objForEval,outboundArray,outputRows);
   transaction.finish()
+  await checkKeyMembers(org);
   outboundArray.forEach( (project) => {
     project[1].sort((first, second) => { return first['priority'] - second['priority'] });
     project[1] = Array.from(new Set(project[1]))
@@ -794,7 +825,10 @@ async function start(org){
     Sentry.captureException(error);
     alert('Audit failed due to an inability to query the API. Please refresh the Sentry page for '+org+ ', authenticate as super user, and try again.');
     alert('Please also send a message to #proj-se-audit-automation with the org you were attempting to audit if this does not work.');
-    location.reload();
+    
+    if(!debug){
+      location.reload();
+    }
   }
 
   // console.log('projects without Crash Free Alerts')
@@ -984,12 +1018,15 @@ async function checkOrgStats(org){
   orgWideStats = aggregateStats(orgStats);
   let dropRateRow = []
   orgWideStats[0].forEach ( element => {
-
-    dropRateRow.push(
-      ['Org wide', element, ((((orgWideStats[2][element]*100)/(orgWideStats[2][element]+orgWideStats[1][element])) )), orgWideStats[2][element],
-      (((orgWideStats[3][element]*100)/(orgWideStats[3][element]+orgWideStats[1][element])) || '100'),(orgWideStats[1][element] || 'none')]
-     )
-     console.log(dropRateRow)
+    if(element != 'transaction_indexed'){
+      dropRateRow.push(
+        ['Org wide', element, ((((orgWideStats[2][element]*100)/(orgWideStats[2][element]+orgWideStats[1][element])) )), orgWideStats[2][element],
+        (((orgWideStats[3][element]*100)/(orgWideStats[3][element]+orgWideStats[1][element])) || '100'),(orgWideStats[1][element] || 'none')]
+       )
+       console.log(dropRateRow)
+    }
+   
+   
   })
   if (dropRateRow != []) {
     dropRateDataRows.push(dropRateRow);
@@ -1112,6 +1149,16 @@ async function checkGenericProject(org,project){
   let projectId = apiResult['id'];
   let projectName = apiResult['slug'];
   let platform = apiResult['platform'];
+  let routerInstrumentation = true;
+  let sessionReplayApi = `https://${org}.sentry.io/api/0/organizations/${org}z/stats_v2/?category=replay&field=sum%28quantity%29&groupBy=outcome&groupBy=project&interval=1d&project=${projectId}&statsPeriod=30d`
+  let usingSessionReplay = true;
+  if (platform.includes('javascript')) {
+    usingSessionReplay = false;
+    let routerInstrumentationApi = await fetch (`https://${org}.sentry.io/api/0/organizations/${org}/events-meta/?project=${projectId}&query=event.type%3Atransaction%20transaction.op%3A%5Bpageload%2Cui.action.click%2Cnavigation%5D&statsPeriod=30d`).then((r)=>{return r.json()})
+    if (routerInstrumentationApi['count'] < 10) { routerInstrumentation = false; }
+    let replayUsage = await fetch(sessionReplayApi).then((r)=>{return r.json()})
+    usingSessionReplay = replayUsage['groups'].filter( function (element)  { return element['by']['outcome'] == 'accepted' }).length > 0;
+  }
   let projEnvironmentCount = apiResult['environments'].length;
   let projOutcomes = projectStats.groups.filter( function (element) { return String(element['by']['project'])==String(projectId) });
   let acceptedCategories = [];
@@ -1154,7 +1201,8 @@ async function checkGenericProject(org,project){
   let projAlertsUsingSlack = projectAlerts.filter( function (element) { return ('triggers' in element)  })
   projAlertsUsingSlack = projAlertsUsingSlack.filter( function (element) { return (element['triggers'].length>0)  })
   projAlertsUsingSlack = projAlertsUsingSlack.filter( function (element) { return (element['triggers'][0]['actions'].length>0)  })
-  projAlertsUsingSlack = projAlertsUsingSlack.filter( function (element) { return (messagingDict.includes(element['triggers'][0]['actions'][0]))  })
+  
+  projAlertsUsingSlack = projAlertsUsingSlack.filter( function (element) { return (messagingDict.includes(element['triggers'][0]['actions'][0]['type']))  })
   let metricAlerts = projectAlerts.filter( function(element) { return (element['dataset'] == 'metrics' || element['dataset'] == 'events')})
   let crashFreeAlerts = metricAlerts.filter( function(element) { return element['aggregate'].includes('percentage(sessions_crashed, sessions)')}).length>0
   let assignmentApi = `https://sentry.io/api/0/organizations/${org}/issues/?collapse=stats&expand=owners&expand=inbox&limit=25&project=${projectId}&query=is%3Aunresolved%20is%3Aassigned&shortIdLookup=1&statsPeriod=14d`
@@ -1207,12 +1255,11 @@ async function checkGenericProject(org,project){
   } else if (!(platform.includes('javascript') || platform.includes('vue'))){
     hasMinifiedStacks = true;
   }
-
   let projectData = {
-    'projectName':projectName,'projectId':projectId,'environments':projEnvironmentCount>1,'hasDesymFiles':!hasMinifiedStacks,
+    'projectName':projectName,'projectId':projectId,"Platform":platform,'environments':projEnvironmentCount>1,'hasDesymFiles':!hasMinifiedStacks,'usingSessionReplay':usingSessionReplay,
     'upgradeSdk':sdktoUpgrade,'useAllErrorTypes':'null','useResolveWorkflow':useResolveWorkflow,'assignments':assignmentPercentage,'ownershipRules':ownershipRulesSet,
     'sessions':usingSessions,'releases':usingReleases,'attachments':usingAttachments,'profiles':usingProfiling,'performance':usingPerformance,
-    'alerts':projectAlerts.length>0,'metricAlerts':metricAlerts.length>0,"Crash Free Alerts":crashFreeAlerts,"Platform":platform,'slackAlert':projAlertsUsingSlack.length>0,'linksIssues':linkingIssues
+    'alerts':projectAlerts.length>0,'metricAlerts':metricAlerts.length>0,"Crash Free Alerts":crashFreeAlerts,'slackAlert':projAlertsUsingSlack.length>0,'linksIssues':linkingIssues,'routerInstrumentation':routerInstrumentation
   };
   
   let row = []
@@ -1285,7 +1332,47 @@ function checkItemsInDict(response,dict) {
     (see Deep Audit > [Auto Instrumentation Enabled](https://www.notion.so/Deep-Audit-Ideas-2e1346e6461a4df8a92cd53379023e38))
     √- Sending profiles?
  */
-
+async function checkKeyMembers(org) {
+  let membersApi = `https://${org}.sentry.io/api/0/organizations/${org}/members/?query=role%3Aadmin%20role%3Amanager%20role%3Aowner`;
+  let members = await fetch(membersApi).then((r)=>{return r.json()});
+  members = members.filter(function (element) {
+    return ((new Date().getMonth() < new Date(element['user']['lastActive']).getMonth()+3) && (new Date().getFullYear() == new Date(element['user']['lastActive']).getFullYear()))
+  })
+  var tableDiv = document.createElement('div');
+  var tbl = document.createElement('table');
+  tbl.setAttribute('id','keyMembers');
+  tbl.style.border = '1px solid black';
+  let row = tbl.insertRow();
+  let headers = ['Name','Email','Role','Last Active']
+  for ( let header of headers ) {
+    const cell = row.insertCell();
+    var text = document.createTextNode(header);
+    cell.appendChild(text);
+    cell.style.border = '1px solid black';
+  }
+  for ( let member of members ) {
+    row = tbl.insertRow();
+    var cell = row.insertCell();
+    var text = document.createTextNode(member['name']);
+    cell.appendChild(text);
+    cell.style.border = '1px solid black';
+    cell = row.insertCell();
+    text = document.createTextNode(member['email']);
+    cell.appendChild(text);
+    cell.style.border = '1px solid black';
+    cell = row.insertCell();
+    text = document.createTextNode(member['orgRole']);
+    cell.appendChild(text);
+    cell.style.border = '1px solid black';
+    cell = row.insertCell();
+    text = document.createTextNode(new Date(member['user']['lastActive']).toDateString());
+    cell.appendChild(text);
+    cell.style.border = '1px solid black';
+    
+  }
+  tableDiv.appendChild(tbl);
+  document.body.appendChild(tableDiv);
+}
 
 
 
@@ -1451,11 +1538,11 @@ async function checkMobileUseCase(org) {
         if (apiResult.length > 0) {hasDesymbolicationFiles=true;}
         if (!(hasDesymbolicationFiles && (!hasMinifiedStacks))) {hasDesymbolicationFiles=false;}
         let projectData = {
-          'projectName':projectName,'projectId':projectId,'environments':projEnvironmentCount>1,'hasDesymFiles':hasDesymbolicationFiles,
+          'projectName':projectName,'projectId':projectId,"Platform":platform,'environments':projEnvironmentCount>1,'hasDesymFiles':hasDesymbolicationFiles,
           'upgradeSdk':sdktoUpgrade,'useAllErrorTypes':iosMechanismsUsed || androidMechanismsUsed,'useResolveWorkflow':useResolveWorkflow,'assignments':assignmentPercentage,'ownershipRules':ownershipRulesSet,
           'sessions':usingSessions,'releases':usingReleases,'attachments':usingAttachments,'profiles':usingProfiling,'performance':usingPerformance,
-          'alerts':projectAlerts.length>0,'metricAlerts':metricAlerts.length>0,"Crash Free Alerts":crashFreeAlerts,"Platform":platform,'slackAlert':projAlertsUsingSlack.length>0,
-          'dbSpansInstrumented':dbInstrumented,'uiSpansInstrumented':uiInstrumented,'httpSpansInstrumented':httpInstrumented,'linksIssues':linkingIssues
+          'alerts':projectAlerts.length>0,'metricAlerts':metricAlerts.length>0,"Crash Free Alerts":crashFreeAlerts,'slackAlert':projAlertsUsingSlack.length>0,
+          'dbSpansInstrumented':dbInstrumented,'uiSpansInstrumented':uiInstrumented,'httpSpansInstrumented':httpInstrumented,'linksIssues':linkingIssues,'routerInstrumentation':true
         };
         
 
