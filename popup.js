@@ -1336,7 +1336,15 @@ async function checkKeyMembers(org) {
   let membersApi = `https://${org}.sentry.io/api/0/organizations/${org}/members/?query=role%3Aadmin%20role%3Amanager%20role%3Aowner`;
   let members = await fetch(membersApi).then((r)=>{return r.json()});
   members = members.filter(function (element) {
-    return ((new Date().getMonth() < new Date(element['user']['lastActive']).getMonth()+3) && (new Date().getFullYear() == new Date(element['user']['lastActive']).getFullYear()))
+    console.log(element)
+    if(element['user']==null) {
+      return [];
+    } else {
+      if('lastActive' in element['user']){
+        return ((new Date().getMonth() < new Date(element['user']['lastActive']).getMonth()+3) && (new Date().getFullYear() == new Date(element['user']['lastActive']).getFullYear()))
+      }
+      else { return [];}
+    }
   })
   var tableDiv = document.createElement('div');
   var tbl = document.createElement('table');
@@ -1365,7 +1373,11 @@ async function checkKeyMembers(org) {
     cell.appendChild(text);
     cell.style.border = '1px solid black';
     cell = row.insertCell();
-    text = document.createTextNode(new Date(member['user']['lastActive']).toDateString());
+    if(member['user']!=null){
+      text = document.createTextNode(new Date(member['user']['lastActive']).toDateString());
+    } else {
+      text = document.createTextNode('');
+    }
     cell.appendChild(text);
     cell.style.border = '1px solid black';
     
