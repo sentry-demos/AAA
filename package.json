@@ -5,7 +5,8 @@
   "main": "engine.js",
   "type": "module",
   "scripts": {
-    "test": "test"
+    "test": "test",
+    "sentry:sourcemaps": "sentry-cli sourcemaps inject --org testorg-az --project audit-automator-extension . && sentry-cli sourcemaps upload --org testorg-az --project audit-automator-extension ."
   },
   "repository": {
     "type": "git",
@@ -16,5 +17,8 @@
   "bugs": {
     "url": "https://github.com/dgbailey/rule_engine/issues"
   },
-  "homepage": "https://github.com/dgbailey/rule_engine#readme"
+  "homepage": "https://github.com/dgbailey/rule_engine#readme",
+  "dependencies": {
+    "@sentry/browser": "^7.48.0"
+  }
 }

@@ -1,8 +1,13 @@
 // const {mockAccount} = import('./engine.js');
+
+// Select which elements of the audit you want to run  ----- tbd
+
+// Increase in usage over the past 30/14/7/1 days?
+
 import {RULE_ENGINE} from './engine.js';
 import {Sentry} from './sentry.js';
 import {EXPLAINERS,ORG_EXPLAINERS} from './data-explainers.js';
-let debug = false;
+let debug = true;
 const api = "https://sentry.io/api/0/organizations/"
 let url;
 Sentry.init({
@@ -41,7 +46,6 @@ function currentOrg(){
   });
 
 }
-
 function openNewTab(){
   chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
     var activeTab = tabs[0];
@@ -564,6 +568,7 @@ class Project {
     set projectInstrumentedDB(x){
       this.dbIsInstrumented = x;
     }
+
     //       this.usesAllErrorTypes = usesAllErrorTypes;
       // this.httpIsInstrumented = httpIsInstrumented;
       // this.dbIsInstrumented = dbIsInstrumented;
@@ -690,12 +695,25 @@ startButton.onclick = currentOrg;
 newTabButton.onclick = openNewTab;
 startingDiv.appendChild(checkbox);
 startingDiv.appendChild(label);
+
+// for(let output in outputRowToProperty) {
+//   checkbox = document.createElement('input');
+//   checkbox.type = "checkbox";
+//   checkbox.name = output
+//   checkbox.value = true;
+//   checkbox.id = output
+//   label = document.createElement('label');
+//   label.htmlFor = checkbox.id;
+//   label.appendChild(document.createTextNode(output));
+//   startingDiv.appendChild(checkbox);
+//   startingDiv.appendChild(label);
+// }
+
 startingDiv.appendChild(startButton);
 if(!displayAsTab) {
   startingDiv.appendChild(newTabButton);
 }
 document.body.appendChild(startingDiv);
-
 
 
 
@@ -733,7 +751,6 @@ async function start(org){
   transaction = Sentry.startTransaction({ name: "checkMobileUseCase" });
   await checkMobileUseCase(org);
   transaction.finish();
-
   dropRateDataRows.forEach( element => {
     if(Array.isArray(element[0])) {
       element.forEach( el => {
@@ -1146,9 +1163,9 @@ async function checkGenericProject(org,project){
     return Number(element['id']) == Number(project);
   })[0]
   let sdkUpdates = await fetch(`https://sentry.io/api/0/organizations/${org}/sdk-updates/`).then((r)=>{return r.json()})
-  let projectId = apiResult['id'];
-  let projectName = apiResult['slug'];
-  let platform = apiResult['platform'];
+  let projectId = apiResult['id'] ?? '';
+  let projectName = apiResult['slug'] ?? '';
+  let platform = apiResult['platform'] ?? ''; // null safe 
   let routerInstrumentation = true;
   let sessionReplayApi = `https://${org}.sentry.io/api/0/organizations/${org}z/stats_v2/?category=replay&field=sum%28quantity%29&groupBy=outcome&groupBy=project&interval=1d&project=${projectId}&statsPeriod=30d`
   let usingSessionReplay = true;
@@ -1171,12 +1188,12 @@ async function checkGenericProject(org,project){
   let usingSessions = false;
   let hasMinifiedStacks = apiResult['hasMinifiedStackTrace'] 
   let latestReleases = [];
-  let releasesApi = `https://sentry.io/api/0/organizations/${org}/releases/?adoptionStages=1&flatten=0&per_page=20&project=${projectId}&status=open`
-  apiResult = await fetch(releasesApi).then((r)=> r.json()).then((result => {return result}));
-  if (apiResult.length>2) {
-    usingReleases = true;
-    latestReleases = apiResult;
-  }
+    let releasesApi = `https://sentry.io/api/0/organizations/${org}/releases/?adoptionStages=1&flatten=0&per_page=20&project=${projectId}&status=open`
+    apiResult = await fetch(releasesApi).then((r)=> r.json()).then((result => {return result}));
+    if (apiResult.length>2) {
+      usingReleases = true;
+      latestReleases = apiResult;
+    }
   let sessionApi = `https://sentry.io/api/0/organizations/${org}/sessions/?field=sum%28session%29&groupBy=project&groupBy=release&groupBy=session.status&interval=1d&project=${projectId}`;
   let enoughSessions = []
   try{
