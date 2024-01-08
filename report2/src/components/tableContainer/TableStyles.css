@@ -1,0 +1,101 @@
+.table-container {
+  font-family: 'Arial', sans-serif;
+  color: #333;
+  max-width: 100%;
+  margin: 20px auto;
+  background: #fff;
+  padding: 20px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+.table-heading {
+  color: #3B5998;
+  font-size: 24px; /* Adjusted for larger heading */
+  margin-bottom: 30px; /* More space below the heading */
+  text-align: center;
+}
+
+.project-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.project-table th, .project-table td {
+  padding: 15px; /* More padding for a spacious look */
+  text-align: left;
+  border-bottom: 1px solid #ddd; /* Borders for separation */
+}
+
+.row-header {
+  display: block;
+  margin-bottom: 10px; /* Space between sections */
+}
+
+.row-title {
+  font-size: 18px; /* Larger font size for titles */
+  margin-bottom: 5px;
+  color: #3B5998; /* Styled like Sentry heading */
+}
+
+/* Colors for tags like Sentry bullets */
+.developer-productivity {
+  color: #0e8c93; /* Sentry's SDK color */
+}
+
+.developer-happiness {
+  color: #f96332; /* Sentry's Mobile color */
+}
+
+.section-title {
+  margin-top: 20px;
+  padding-bottom: 5px;
+  font-size: 18px; /* Adjust the font size as needed */
+  border-bottom: 2px solid #ddd; /* Visual break with a horizontal line */
+  color: #27496d
+}
+
+.expanded-row {
+  margin-bottom: 20px; /* More space between sections */
+}
+
+.section-content {
+  margin-bottom: 10px; /* Space after the content before the recommendation */
+}
+
+.recommendation {
+  margin-bottom: 20px; /* Space after the recommendation */
+}
+
+a:link, a:visited {
+  color: blue; /* or any color you want for your links */
+  text-decoration: none; /* if you don't want underlines */
+}
+
+a:hover {
+  color: darkblue; /* or any color for hover state */
+  text-decoration: underline; /* if you want underline on hover */
+}
+
+
+/* Media query adjustments for smaller screens */
+@media (max-width: 768px) {
+  .table-container {
+    margin: 10px;
+  }
+
+  .table-heading {
+    font-size: 1.5em;
+  }
+
+  .row-title {
+    font-size: 1em;
+  }
+}
+
+/* Add to your CSS file */
+@media print {
+  .page-break {
+    page-break-inside: avoid;
+    margin-top: 20px; /* Add space before the start of a new section */
+  }
+}
