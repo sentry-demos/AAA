@@ -3,8 +3,8 @@
 // Findings to add:
 //  - project links issues if they have issue tracking integration
 const inputData = {
-    "Org Slug": "demo-slug",
-    "Project Name": "demo",
+    "Org Slug": "demo",
+    "Project Name": "react",
     "Project Id": 1234567890,
     "Project Uses Environments?": false,
     "Project Platform": "javascript-react",
