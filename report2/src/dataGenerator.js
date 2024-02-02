@@ -1,7 +1,6 @@
-// generate a data object that contains values below based on matching data from gideon's output
-// replace variables in urls with slug and project name e.g https://{slug}.sentry.io/settings/projects/{projectName}/ownership/
-// Findings to add:
-//  - project links issues if they have issue tracking integration
+// generate a data object based on AAA output
+
+// this is sample data, to fully automate we'd want data output from AAA to be converted into inputData
 const inputData = {
     "Org Slug": "demo",
     "Project Name": "react",
