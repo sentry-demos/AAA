@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import './TableStyles.css'; // Import the stylesheet for styling
 import sentryLogo from '../imgs/sentry.png'; 
-import { newObj } from '../../dataGenerator';
+import { findingsObj } from '../../dataGenerator';
 
 
 const parseRecommendation = (recommendation) => {
@@ -13,11 +13,11 @@ const parseRecommendation = (recommendation) => {
     };
   }
 
-  // Function to replace placeholders with values from newObj
+  // Function to replace placeholders with values from findingsObj
   const replacePlaceholders = (text) => {
     return text.replace(/\{([^}]+)\}/g, (match, key) => {
-      // Replace with value from newObj if available, else keep original placeholder
-      return newObj[key] ?? match;
+      // Replace with value from findingsObj if available, else keep original placeholder
+      return findingsObj[key] ?? match;
     });
   };
 
@@ -116,7 +116,7 @@ const TableContainer = () => {
 
   const data = useMemo(
     () => {
-      return Object.entries(newObj)
+      return Object.entries(findingsObj)
         .filter(([key]) => key !== "Org Slug" && key !== "Project Name")
         .map(([key, value]) => ({
           key,
@@ -151,9 +151,9 @@ const TableContainer = () => {
         </h1>
         <span style={{ marginLeft: 'auto' }}>Generated on {dateNow}</span>
       </div>
-      <span><strong>Org Slug:</strong> {newObj["Org Slug"]}</span>
+      <span><strong>Org Slug:</strong> {findingsObj["Org Slug"]}</span>
       <br></br>
-      <span><strong>Project Name:</strong> {newObj["Project Name"]}</span>
+      <span><strong>Project Name:</strong> {findingsObj["Project Name"]}</span>
       <p>
         <li>This report lists useful features included in your current plan but not yet set up.</li>
         <li>See the descriptions and <strong>recommendation links</strong>  for why & how to get configured.</li>  

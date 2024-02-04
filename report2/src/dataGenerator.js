@@ -1,36 +1,91 @@
-// generate a data object based on AAA output
+// to automate this step, need an endpoint to receive data in JSON format matching "sample data" below
+// see google sheet for example of data copied from AAA browser extension: https://docs.google.com/spreadsheets/d/1LqccJ_KmveQoR5xcx3TR4OMw-fuMoIkChp_O7Vz9dgA/edit#gid=1051787185
+// copy paste from google sheet to dataString --> then convertedToJson so condition checks can be processed
+const dataString = `Org Slug	demo
+Project Name	react
+Project Id	1234567890
+Project Uses Environments?	FALSE
+Project Platform	javascript-react
+Project has minified Stacktraces?	TRUE
+Sdk version to upgrade	sentry.javascript.browser7.80.1=>7.92.0
+Issue Workflow is used? (Issues get Resolved)	FALSE
+% Of issues that are assigned	0
+Ownership Rules are set	FALSE
+Sessions are being sent?	FALSE
+Releases are being created?	FALSE
+Performance is used in this project?	FALSE
+Attachments are being sent?	undefined
+Profiles are being used?	FALSE
+Project has alerts set up?	FALSE
+Project has metric alerts set up?	FALSE
+Project has a CFSR Alert?	FALSE
+Project has an alert which utilises a messaging integration	FALSE
+Project is Mobile	FALSE
+Project links issues	FALSE
+Uses all Error Types	null
+HTTP Spans Instrumented	FALSE
+DB Spans Instrumented (perf issues)	FALSE
+UI Spans Instrumented	FALSE
+Router Instrumented?	FALSE
+Using Session Replay?	FALSE`;
 
-// this is sample data, to fully automate we'd want data output from AAA to be converted into inputData
-const inputData = {
-    "Org Slug": "demo",
-    "Project Name": "react",
-    "Project Id": 1234567890,
-    "Project Uses Environments?": false,
-    "Project Platform": "javascript-react",
-    "Project has minified Stacktraces?": true,
-    "Sdk version to upgrade": "sentry.javascript.browser7.80.1=>7.92.0",
-    "Issue Workflow is used? (Issues get Resolved)": false,
-    "% Of issues that are assigned": 0,
-    "Ownership Rules are set": false,
-    "Sessions are being sent?": false,
-    "Releases are being created?": false,
-    "Performance is used in this project?": false,
-    "Attachments are being sent?": "undefined",
-    "Profiles are being used?": false,
-    "Project has alerts set up?": false,
-    "Project has metric alerts set up?": false,
-    "Project has a CFSR Alert?": false,
-    "Project has an alert which utilises a messaging integration": false,
-    "Project is Mobile": false,
-    "Project links issues": false,
-    "Uses all Error Types": "null",
-    "HTTP Spans Instrumented": false,
-    "DB Spans Instrumented (perf issues)": false,
-    "UI Spans Instrumented": false,
-    "Router Instrumented?": false,
-    "Using Session Replay?": false
-}
+const convertToJSON = (dataString) => {
+    const lines = dataString.split('\n');
+    const result = {};
+  
+    lines.forEach(line => {
+        let [key, value] = line.split('\t');
+        key = key.trim();
+        value = value.trim();
 
+        if (value === 'TRUE') value = true;
+        else if (value === 'FALSE') value = false;
+        else if (value === 'undefined') value = undefined;
+        else if (value === 'null') value = null;
+        else if (!isNaN(value) && value !== '') value = Number(value);
+
+        result[key] = value;
+    });
+  
+    return result;
+};
+  
+const jsonData = convertToJSON(dataString);
+console.log(jsonData);
+const inputData = jsonData;
+
+// sample data
+// const inputData = {
+//     "Org Slug": "demo",
+//     "Project Name": "react",
+//     "Project Id": 1234567890,
+//     "Project Uses Environments?": false,
+//     "Project Platform": "javascript-react",
+//     "Project has minified Stacktraces?": true,
+//     "Sdk version to upgrade": "sentry.javascript.browser7.80.1=>7.92.0",
+//     "Issue Workflow is used? (Issues get Resolved)": false,
+//     "% Of issues that are assigned": 0,
+//     "Ownership Rules are set": false,
+//     "Sessions are being sent?": false,
+//     "Releases are being created?": false,
+//     "Performance is used in this project?": false,
+//     "Attachments are being sent?": "undefined",
+//     "Profiles are being used?": false,
+//     "Project has alerts set up?": false,
+//     "Project has metric alerts set up?": false,
+//     "Project has a CFSR Alert?": false,
+//     "Project has an alert which utilises a messaging integration": false,
+//     "Project is Mobile": false,
+//     "Project links issues": false,
+//     "Uses all Error Types": "null",
+//     "HTTP Spans Instrumented": false,
+//     "DB Spans Instrumented (perf issues)": false,
+//     "UI Spans Instrumented": false,
+//     "Router Instrumented?": false,
+//     "Using Session Replay?": false
+// }
+
+//this is the list of findings that can be surfaced in the report
 export const findings = {
     "Automatic Issue Assignment": {
         "value": false,
@@ -87,43 +142,43 @@ export const findings = {
     },
 }
 
-const newObj = {
+const findingsObj = {
     "Org Slug": inputData["Org Slug"],
     "Project Name": inputData["Project Name"],
 }; 
 
-//condition checks to add findings into report
+//condition checks to determine which findings will be included in report
 if(inputData["Issue Workflow is used? (Issues get Resolved)"] === false) {
-    newObj["Regression Tracking"] = findings["Regression Tracking"];
+    findingsObj["Regression Tracking"] = findings["Regression Tracking"];
 }
 
 if(inputData["Project Uses Environments?"] === false) {
-    newObj["Environments"] = findings["Environments"];
+    findingsObj["Environments"] = findings["Environments"];
 }
 
 if(inputData["Project has alerts set up?"] === false) {
-    newObj["Issue Alerts"] = findings["Issue Alerts"];
+    findingsObj["Issue Alerts"] = findings["Issue Alerts"];
 }
 
 if(inputData["Project has metric alerts set up?"] === false) {
-    newObj["Metric Alerts"] = findings["Metric Alerts"];
+    findingsObj["Metric Alerts"] = findings["Metric Alerts"];
 }
 
 //only adds CFSR alert if Metric Alerts isn't added
-if (inputData["Project has a CFSR Alert?"] === false && newObj["Metric Alerts"] === undefined) {
-    newObj["Crash Free Session Rate Alerts"] = findings["Crash Free Session Rate Alerts"];
+if (inputData["Project has a CFSR Alert?"] === false && findingsObj["Metric Alerts"] === undefined) {
+    findingsObj["Crash Free Session Rate Alerts"] = findings["Crash Free Session Rate Alerts"];
 }
 
 if(inputData["Releases are being created?"] === false) {
-    newObj["Release Monitoring"] = findings["Release Monitoring"];
+    findingsObj["Release Monitoring"] = findings["Release Monitoring"];
 }
 
 if(inputData["Project has minified Stacktraces?"] === true) {
-    newObj["Source Context"] = findings["Source Context"];
+    findingsObj["Source Context"] = findings["Source Context"];
 }
 
 if(inputData["Ownership Rules are set"] === false) {
-    newObj["Automatic Issue Assignment"] = findings["Automatic Issue Assignment"];
+    findingsObj["Automatic Issue Assignment"] = findings["Automatic Issue Assignment"];
 }
 
-export { newObj };
+export { findingsObj };
